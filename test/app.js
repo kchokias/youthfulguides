@@ -1,28 +1,23 @@
-// Import Firebase functions from the SDKs
-import { initializeApp } from "firebase/app";
-import { getAuth, signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from "firebase/auth";
-import { getAnalytics } from "firebase/analytics";
-
-// Firebase configuration
+// Initialize Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyALCv510_VHgpz0vvbbQ2sc6dxYiw9fc-w",
-  authDomain: "youthfulguides-7ce3b.firebaseapp.com",
-  projectId: "youthfulguides-7ce3b",
-  storageBucket: "youthfulguides-7ce3b.appspot.com", // Fixed storage bucket URL
-  messagingSenderId: "159642827328",
-  appId: "1:159642827328:web:b1d5ef9438a4110fe53da5",
-  measurementId: "G-P93K9Q0DMM"
+    apiKey: "AIzaSyALCv510_VHgpz0vvbbQ2sc6dxYiw9fc-w",
+    authDomain: "youthfulguides-7ce3b.firebaseapp.com",
+    projectId: "youthfulguides-7ce3b",
+    storageBucket: "youthfulguides-7ce3b.appspot.com", // Corrected storage bucket URL
+    messagingSenderId: "159642827328",
+    appId: "1:159642827328:web:b1d5ef9438a4110fe53da5",
+    measurementId: "G-P93K9Q0DMM"
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
+firebase.initializeApp(firebaseConfig);
+const analytics = firebase.analytics();
+const auth = firebase.auth();
+const provider = new firebase.auth.GoogleAuthProvider();
 
-// Event listener for login button
+// Login button
 document.getElementById("loginButton").addEventListener("click", () => {
-    signInWithPopup(auth, provider)
+    auth.signInWithPopup(provider)
         .then((result) => {
             console.log("User signed in:", result.user);
         })
@@ -31,9 +26,9 @@ document.getElementById("loginButton").addEventListener("click", () => {
         });
 });
 
-// Event listener for logout button
+// Logout button
 document.getElementById("logoutButton").addEventListener("click", () => {
-    signOut(auth)
+    auth.signOut()
         .then(() => {
             console.log("User signed out");
         })
@@ -42,8 +37,8 @@ document.getElementById("logoutButton").addEventListener("click", () => {
         });
 });
 
-// Monitor authentication state changes
-onAuthStateChanged(auth, (user) => {
+// Monitor auth state
+auth.onAuthStateChanged((user) => {
     if (user) {
         document.getElementById("userInfo").hidden = false;
         document.getElementById("loginButton").hidden = true;
