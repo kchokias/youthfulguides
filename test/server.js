@@ -1,18 +1,22 @@
-// server.js
 const express = require('express');
 const { getConnection } = require('./db');
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON requests
+// Middleware to parse JSON
 app.use(express.json());
 
-// Example endpoint: Get all users
-app.get('/users', async (req, res) => {
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Example API endpoint (adjust as needed)
+app.get('/api/users', async (req, res) => {
     let connection;
     try {
         connection = await getConnection();
-        const rows = await connection.query("SELECT * FROM users"); // Adjust based on your table
+        const rows = await connection.query("SELECT * FROM users"); // Adjust query based on your table
         res.json(rows);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -21,21 +25,7 @@ app.get('/users', async (req, res) => {
     }
 });
 
-// Example endpoint: Add a new user
-app.post('/users', async (req, res) => {
-    const { username, password } = req.body;
-    let connection;
-    try {
-        connection = await getConnection();
-        const result = await connection.query("INSERT INTO users (username, password) VALUES (?, ?)", [username, password]); // Adjust fields based on your table
-        res.status(201).json({ id: result.insertId, username });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (connection) connection.release();
-    }
-});
-
+// Start server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
