@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js & MariaDB Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #output {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Test Node.js & MariaDB Connection</h1>
+    <button onclick="fetchUsers()">Fetch Users</button>
+
+    <div id="output"></div>
+
+    <script>
+        async function fetchUsers() {
+            try {
+                const response = await fetch('/api/users');
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status}`);
+                }
+                const data = await response.json();
+                displayUsers(data);
+            } catch (error) {
+                document.getElementById('output').textContent = `Failed to fetch users: ${error.message}`;
+            }
+        }
+
+        function displayUsers(users) {
+            const output = document.getElementById('output');
+            output.innerHTML = ''; // Clear previous output
+            if (users.length === 0) {
+                output.textContent = 'No users found.';
+                return;
+            }
+            const list = document.createElement('ul');
+            users.forEach(user => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `ID: ${user.id}, Username: ${user.username}`; // Adjust based on your table structure
+                list.appendChild(listItem);
+            });
+            output.appendChild(list);
+        }
+    </script>
+
+</body>
+</html>
