@@ -35,3 +35,22 @@ app.listen(PORT, () => {
 }).on('error', (error) => {
     console.error("Error starting server:", error);
 });
+
+app.get('/api/users', async (req, res) => {
+    let connection;
+    try {
+        connection = await getConnection();
+        const rows = await connection.query("SELECT * FROM users");
+
+        if (rows.length === 0) {
+            res.status(404).json({ message: "No users found" });
+        } else {
+            res.json(rows);
+        }
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+});
