@@ -1,9 +1,9 @@
-// Initialize Firebase
+// Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyALCv510_VHgpz0vvbbQ2sc6dxYiw9fc-w",
     authDomain: "youthfulguides-7ce3b.firebaseapp.com",
     projectId: "youthfulguides-7ce3b",
-    storageBucket: "youthfulguides-7ce3b.appspot.com", // Corrected storage bucket URL
+    storageBucket: "youthfulguides-7ce3b.appspot.com",
     messagingSenderId: "159642827328",
     appId: "1:159642827328:web:b1d5ef9438a4110fe53da5",
     measurementId: "G-P93K9Q0DMM"
@@ -15,7 +15,7 @@ const analytics = firebase.analytics();
 const auth = firebase.auth();
 const provider = new firebase.auth.GoogleAuthProvider();
 
-// Login button
+// Log in button
 document.getElementById("loginButton").addEventListener("click", () => {
     auth.signInWithPopup(provider)
         .then((result) => {
@@ -26,7 +26,7 @@ document.getElementById("loginButton").addEventListener("click", () => {
         });
 });
 
-// Logout button
+// Log out button
 document.getElementById("logoutButton").addEventListener("click", () => {
     auth.signOut()
         .then(() => {
@@ -37,7 +37,7 @@ document.getElementById("logoutButton").addEventListener("click", () => {
         });
 });
 
-// Monitor auth state
+// Monitor authentication state
 auth.onAuthStateChanged((user) => {
     if (user) {
         document.getElementById("userInfo").hidden = false;
