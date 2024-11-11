@@ -1,54 +1,54 @@
-// server.js
+const bcrypt = require('bcrypt');
 
-const express = require('express');
-const path = require('path');
-const { getConnection } = require('./db'); // Assuming db.js handles MariaDB connections
-require('dotenv').config();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware to parse JSON requests
-app.use(express.json());
-
-// Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Example API endpoint to fetch users
-app.get('/api/users', async (req, res) => {
+// Sign-up endpoint
+app.post('/api/signup', async (req, res) => {
+    const { username, email, password } = req.body;
     let connection;
     try {
         connection = await getConnection();
-        const rows = await connection.query("SELECT * FROM users"); // Adjust query as needed
-        res.json(rows);
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert user into database
+        const result = await connection.query(
+            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+            [username, email, hashedPassword]
+        );
+
+        res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
-        console.error("Error fetching users:", error);
+        console.error("Error during sign-up:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
     }
 });
 
-// Start the server with error handling
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-}).on('error', (error) => {
-    console.error("Error starting server:", error);
-});
-
-app.get('/api/users', async (req, res) => {
+// Login endpoint
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
     let connection;
     try {
         connection = await getConnection();
-        const rows = await connection.query("SELECT * FROM users");
 
-        if (rows.length === 0) {
-            res.status(404).json({ message: "No users found" });
-        } else {
-            res.json(rows);
+        // Retrieve user by email
+        const rows = await connection.query("SELECT * FROM users WHERE email = ?", [email]);
+        const user = rows[0];
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
         }
+
+        // Compare passwords
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) {
+            return res.status(401).json({ message: "Invalid password" });
+        }
+
+        res.json({ message: 'Login successful', user: { id: user.id, username: user.username, email: user.email } });
     } catch (error) {
-        console.error("Error fetching users:", error);
+        console.error("Error during login:", error);
         res.status(500).json({ error: error.message });
     } finally {
         if (connection) connection.release();
