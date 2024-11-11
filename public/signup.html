@@ -56,23 +56,18 @@
                     body: JSON.stringify({ username, email, password })
                 });
 
+                // Log the full response for debugging
+                console.log("Server response:", response);
+
                 // Check if the response is ok
                 if (!response.ok) {
-                    throw new Error(`Error: ${response.status}`);
-                }
-
-                // Attempt to parse the response as JSON
-                let result;
-                try {
-                    result = await response.json();
-                } catch (jsonError) {
-                    // If parsing fails, log the raw response text and show an error
                     const text = await response.text();
-                    console.error("Failed to parse JSON:", text);
-                    throw new Error("Unexpected response format");
+                    console.error("Server responded with an error:", text);
+                    throw new Error(`Server error: ${response.status} - ${text}`);
                 }
 
-                // Display server response message
+                // Parse JSON response
+                const result = await response.json();
                 document.getElementById('message').textContent = result.message;
             } catch (error) {
                 console.error("Error during sign-up:", error);
