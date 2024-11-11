@@ -1,4 +1,39 @@
+// server.js
+
+const express = require('express');
+const path = require('path');
 const bcrypt = require('bcrypt');
+const { getConnection } = require('./db'); // Assuming db.js handles MariaDB connections
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware to parse JSON requests
+app.use(express.json());
+
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// API endpoint to fetch users
+app.get('/api/users', async (req, res) => {
+    let connection;
+    try {
+        connection = await getConnection();
+        const rows = await connection.query("SELECT * FROM users");
+
+        if (rows.length === 0) {
+            res.status(404).json({ message: "No users found" });
+        } else {
+            res.json(rows);
+        }
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+});
 
 // Sign-up endpoint
 app.post('/api/signup', async (req, res) => {
@@ -11,7 +46,7 @@ app.post('/api/signup', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Insert user into database
-        const result = await connection.query(
+        await connection.query(
             "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
             [username, email, hashedPassword]
         );
@@ -53,4 +88,11 @@ app.post('/api/login', async (req, res) => {
     } finally {
         if (connection) connection.release();
     }
+});
+
+// Start the server with error handling
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+}).on('error', (error) => {
+    console.error("Error starting server:", error);
 });
