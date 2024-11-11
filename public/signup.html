@@ -22,20 +22,51 @@
     <p id="message"></p>
 
     <script>
+        // Validation function to check if the email is valid
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Event listener for the form submission
         document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // Get form values
             const username = document.getElementById('username').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 
-            const response = await fetch('/api/signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
-            });
+            // Basic validation
+            if (!username || !email || !password) {
+                document.getElementById('message').textContent = 'All fields are required.';
+                return;
+            }
 
-            const result = await response.json();
-            document.getElementById('message').textContent = result.message;
+            if (!isValidEmail(email)) {
+                document.getElementById('message').textContent = 'Please enter a valid email address.';
+                return;
+            }
+
+            try {
+                // Send sign-up data to the server
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                // Check if the response is ok
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status}`);
+                }
+
+                // Display server response message
+                const result = await response.json();
+                document.getElementById('message').textContent = result.message;
+            } catch (error) {
+                document.getElementById('message').textContent = `Failed to sign up: ${error.message}`;
+            }
         });
     </script>
 </body>

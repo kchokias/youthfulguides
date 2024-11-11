@@ -35,9 +35,22 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
-// Sign-up endpoint
+
+// API signup 
 app.post('/api/signup', async (req, res) => {
     const { username, email, password } = req.body;
+
+    // Validate email, username, and password
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+    }
+    if (!username || typeof username !== 'string') {
+        return res.status(400).json({ message: "Invalid username" });
+    }
+    if (!password || typeof password !== 'string') {
+        return res.status(400).json({ message: "Invalid password" });
+    }
+
     let connection;
     try {
         connection = await getConnection();
@@ -45,7 +58,7 @@ app.post('/api/signup', async (req, res) => {
         // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert user into database
+        // Insert user into the database
         await connection.query(
             "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
             [username, email, hashedPassword]
@@ -96,3 +109,10 @@ app.listen(PORT, () => {
 }).on('error', (error) => {
     console.error("Error starting server:", error);
 });
+
+
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
