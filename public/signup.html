@@ -61,10 +61,21 @@
                     throw new Error(`Error: ${response.status}`);
                 }
 
+                // Attempt to parse the response as JSON
+                let result;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    // If parsing fails, log the raw response text and show an error
+                    const text = await response.text();
+                    console.error("Failed to parse JSON:", text);
+                    throw new Error("Unexpected response format");
+                }
+
                 // Display server response message
-                const result = await response.json();
                 document.getElementById('message').textContent = result.message;
             } catch (error) {
+                console.error("Error during sign-up:", error);
                 document.getElementById('message').textContent = `Failed to sign up: ${error.message}`;
             }
         });

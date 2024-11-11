@@ -15,6 +15,12 @@ app.use(express.json());
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Email validation helper function
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
 // API endpoint to fetch users
 app.get('/api/users', async (req, res) => {
     let connection;
@@ -23,20 +29,18 @@ app.get('/api/users', async (req, res) => {
         const rows = await connection.query("SELECT * FROM users");
 
         if (rows.length === 0) {
-            res.status(404).json({ message: "No users found" });
-        } else {
-            res.json(rows);
+            return res.status(404).json({ message: "No users found" });
         }
+        res.json(rows);
     } catch (error) {
         console.error("Error fetching users:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Failed to fetch users" });
     } finally {
         if (connection) connection.release();
     }
 });
 
-
-// API signup 
+// API endpoint for signup
 app.post('/api/signup', async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -67,15 +71,24 @@ app.post('/api/signup', async (req, res) => {
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
         console.error("Error during sign-up:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Failed to register user" });
     } finally {
         if (connection) connection.release();
     }
 });
 
-// Login endpoint
+// API endpoint for login
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+
+    // Validate email and password
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+    }
+    if (!password || typeof password !== 'string') {
+        return res.status(400).json({ message: "Invalid password" });
+    }
+
     let connection;
     try {
         connection = await getConnection();
@@ -97,7 +110,7 @@ app.post('/api/login', async (req, res) => {
         res.json({ message: 'Login successful', user: { id: user.id, username: user.username, email: user.email } });
     } catch (error) {
         console.error("Error during login:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Failed to log in" });
     } finally {
         if (connection) connection.release();
     }
@@ -109,10 +122,3 @@ app.listen(PORT, () => {
 }).on('error', (error) => {
     console.error("Error starting server:", error);
 });
-
-
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
