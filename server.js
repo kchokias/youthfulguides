@@ -9,6 +9,19 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Test database connection
+async function testDatabaseConnection() {
+    try {
+        const connection = await getConnection();
+        console.log("Database connection successful!");
+        connection.release(); // Release the connection after testing
+    } catch (error) {
+        console.error("Database connection failed:", error);
+    }
+}
+
+testDatabaseConnection(); // Run the test when the server starts
+
 // Middleware to parse JSON requests
 app.use(express.json());
 
