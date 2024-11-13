@@ -4,20 +4,32 @@ require('dotenv').config();
 // Import required packages
 const express = require('express');
 const mariadb = require('mariadb');
+
+
+// from this code we read the log to a file at server.log
 const path = require('path');
 const fs = require('fs');
+
 
 // Create a write stream for the log file
 const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
 
-// Redirect console.log to log file
+// Redirect console.log to log file AND console
+const originalLog = console.log;
 console.log = function (message) {
-  logFile.write(new Date().toISOString() + " - LOG: " + message + "\n");
+  const timestamp = new Date().toISOString();
+  const logMessage = `${timestamp} - LOG: ${message}`;
+  logFile.write(logMessage + "\n"); // Write to file
+  originalLog(logMessage); // Print to console
 };
 
-// Redirect console.error to log file
+// Redirect console.error to log file AND console
+const originalError = console.error;
 console.error = function (message) {
-  logFile.write(new Date().toISOString() + " - ERROR: " + message + "\n");
+  const timestamp = new Date().toISOString();
+  const errorMessage = `${timestamp} - ERROR: ${message}`;
+  logFile.write(errorMessage + "\n"); // Write to file
+  originalError(errorMessage); // Print to console
 };
 
 // Create an instance of Express
