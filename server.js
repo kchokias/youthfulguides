@@ -35,16 +35,33 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Define the /ping route for health checks
+app.get('/ping', (req, res) => {
+  console.log('Ping endpoint hit');
+  res.send('Server is alive!');
+});
+
 // Define a basic route
 app.get('/', (req, res) => {
   res.send('Welcome to YouthfulGuides.app!');
 });
+
+// Catch-all route for undefined endpoints
+app.use((req, res, next) => {
+  res.status(404).send('Sorry, the requested resource was not found.');
+});
+
+// Global error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Something went wrong! Please try again later.');
+});
+
+// Save the day from favico error 500
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on http://youthfulguides.app:${PORT}`);
 });
-
-//save the day from favico error 500
-app.get('/favicon.ico', (req, res) => res.status(204).end());
