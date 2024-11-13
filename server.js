@@ -45,3 +45,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on http://youthfulguides.app:${PORT}`);
 });
+
+//save the day from favico error 500
+app.get('/favicon.ico', (req, res) => res.status(204).end());
