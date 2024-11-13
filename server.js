@@ -5,6 +5,20 @@ require('dotenv').config();
 const express = require('express');
 const mariadb = require('mariadb');
 const path = require('path');
+const fs = require('fs');
+
+// Create a write stream for the log file
+const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
+
+// Redirect console.log to log file
+console.log = function (message) {
+  logFile.write(new Date().toISOString() + " - LOG: " + message + "\n");
+};
+
+// Redirect console.error to log file
+console.error = function (message) {
+  logFile.write(new Date().toISOString() + " - ERROR: " + message + "\n");
+};
 
 // Create an instance of Express
 const app = express();
