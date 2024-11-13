@@ -1,137 +1,47 @@
-// server.js
-
-const express = require('express');
-const path = require('path');
-const bcrypt = require('bcrypt');
-const { getConnection } = require('./db'); // Assuming db.js handles MariaDB connections
+// Load environment variables from .env file
 require('dotenv').config();
 
+// Import required packages
+const express = require('express');
+const mariadb = require('mariadb');
+const path = require('path');
+
+// Create an instance of Express
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+// Database connection pool
+const pool = mariadb.createPool({
+  host: process.env.DB_HOST,      // Database host
+  user: process.env.DB_USER,      // Database user
+  password: process.env.DB_PASSWORD, // Database password
+  database: process.env.DB_NAME,  // Database name
+  port: process.env.DB_PORT       // Database port
+});
 
 // Test database connection
-async function testDatabaseConnection() {
-    try {
-        const connection = await getConnection();
-        console.log("Database connection successful!");
-        connection.release(); // Release the connection after testing
-    } catch (error) {
-        console.error("Database connection failed:", error);
-    }
-}
+pool.getConnection()
+  .then(conn => {
+    console.log('Connected to the database successfully!');
+    conn.release(); // Release the connection back to the pool
+  })
+  .catch(err => {
+    console.error('Unable to connect to the database:', err);
+  });
 
-testDatabaseConnection(); // Run the test when the server starts
-
-// Middleware to parse JSON requests
+// Middleware to parse incoming requests
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Email validation helper function
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
-// API endpoint to fetch users
-app.get('/api/users', async (req, res) => {
-    let connection;
-    try {
-        connection = await getConnection();
-        const rows = await connection.query("SELECT * FROM users");
-
-        if (rows.length === 0) {
-            return res.status(404).json({ message: "No users found" });
-        }
-        res.json(rows);
-    } catch (error) {
-        console.error("Error fetching users:", error);
-        res.status(500).json({ error: "Failed to fetch users" });
-    } finally {
-        if (connection) connection.release();
-    }
+// Define a basic route
+app.get('/', (req, res) => {
+  res.send('Welcome to YouthfulGuides.app!');
 });
 
-// API endpoint for signup
-app.post('/api/signup', async (req, res) => {
-    const { username, email, password } = req.body;
-
-    // Validate email, username, and password
-    if (!isValidEmail(email)) {
-        return res.status(400).json({ message: "Invalid email format" });
-    }
-    if (!username || typeof username !== 'string') {
-        return res.status(400).json({ message: "Invalid username" });
-    }
-    if (!password || typeof password !== 'string') {
-        return res.status(400).json({ message: "Invalid password" });
-    }
-
-    let connection;
-    try {
-        connection = await getConnection();
-
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert user into the database
-        await connection.query(
-            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-            [username, email, hashedPassword]
-        );
-
-        res.status(201).json({ message: 'User registered successfully' });
-    } catch (error) {
-        console.error("Error during sign-up:", error);
-        res.status(500).json({ error: "Failed to register user" });
-    } finally {
-        if (connection) connection.release();
-    }
-});
-
-// API endpoint for login
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    // Validate email and password
-    if (!isValidEmail(email)) {
-        return res.status(400).json({ message: "Invalid email format" });
-    }
-    if (!password || typeof password !== 'string') {
-        return res.status(400).json({ message: "Invalid password" });
-    }
-
-    let connection;
-    try {
-        connection = await getConnection();
-
-        // Retrieve user by email
-        const rows = await connection.query("SELECT * FROM users WHERE email = ?", [email]);
-        const user = rows[0];
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Compare passwords
-        const match = await bcrypt.compare(password, user.password);
-        if (!match) {
-            return res.status(401).json({ message: "Invalid password" });
-        }
-
-        res.json({ message: 'Login successful', user: { id: user.id, username: user.username, email: user.email } });
-    } catch (error) {
-        console.error("Error during login:", error);
-        res.status(500).json({ error: "Failed to log in" });
-    } finally {
-        if (connection) connection.release();
-    }
-});
-
-// Start the server with error handling
+// Start the server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-}).on('error', (error) => {
-    console.error("Error starting server:", error);
+  console.log(`Server is running on http://youthfulguides.app:${PORT}`);
 });

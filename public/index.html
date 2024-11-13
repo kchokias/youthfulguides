@@ -3,49 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Youthful Guide test APP</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <title>Youthful Guides</title>
 </head>
 <body>
-
-    <h1>Youthful Guide test APP</h1>
-    <button onclick="fetchUsers()">Fetch Users</button>
-    <button onclick="location.href='signup.html'">Sign Up</button>
-    <button onclick="location.href='login.html'">Login</button>
-
-    <div id="output"></div>
-
-    <script>
-        async function fetchUsers() {
-            try {
-                const response = await fetch('/api/users');
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.status}`);
-                }
-                const data = await response.json();
-                displayUsers(data);
-            } catch (error) {
-                document.getElementById('output').textContent = `Failed to fetch users: ${error.message}`;
-            }
-        }
-
-        function displayUsers(users) {
-            const output = document.getElementById('output');
-            output.innerHTML = ''; // Clear previous output
-            if (users.length === 0) {
-                output.textContent = 'No users found.';
-                return;
-            }
-            const list = document.createElement('ul');
-            users.forEach(user => {
-                const listItem = document.createElement('li');
-                listItem.textContent = `ID: ${user.id}, Username: ${user.username}`; // Adjust based on your table structure
-                list.appendChild(listItem);
-            });
-            output.appendChild(list);
-        }
-    </script>
-
+    <h1>Welcome to Youthful Guides</h1>
+    <p>If you're seeing this page, your setup is working correctly!</p>
 </body>
 </html>
