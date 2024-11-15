@@ -4,32 +4,27 @@ require('dotenv').config();
 // Import required packages
 const express = require('express');
 const mariadb = require('mariadb');
-
-
-// from this code we read the log to a file at server.log
 const path = require('path');
 const fs = require('fs');
 
-
-// Create a write stream for the log file
+// Create a write stream for logging
 const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
 
-// Redirect console.log to log file AND console
+// Redirect console.log and console.error to both console and log file
 const originalLog = console.log;
 console.log = function (message) {
   const timestamp = new Date().toISOString();
   const logMessage = `${timestamp} - LOG: ${message}`;
-  logFile.write(logMessage + "\n"); // Write to file
-  originalLog(logMessage); // Print to console
+  logFile.write(logMessage + "\n");
+  originalLog(logMessage);
 };
 
-// Redirect console.error to log file AND console
 const originalError = console.error;
 console.error = function (message) {
   const timestamp = new Date().toISOString();
   const errorMessage = `${timestamp} - ERROR: ${message}`;
-  logFile.write(errorMessage + "\n"); // Write to file
-  originalError(errorMessage); // Print to console
+  logFile.write(errorMessage + "\n");
+  originalError(errorMessage);
 };
 
 // Create an instance of Express
@@ -48,7 +43,7 @@ const pool = mariadb.createPool({
 pool.getConnection()
   .then(conn => {
     console.log('Connected to the database successfully!');
-    conn.release(); // Release the connection back to the pool
+    conn.release();
   })
   .catch(err => {
     console.error('Unable to connect to the database:', err);
@@ -67,6 +62,26 @@ app.get('/ping', (req, res) => {
   res.send('Server is alive!');
 });
 
+// Define the /api/User/GetAllUsers route
+app.get('/api/User/GetAllUsers', async (req, res) => {
+  try {
+    // Establish a connection to the database
+    const connection = await pool.getConnection();
+    console.log('Database connection established for GetAllUsers');
+
+    // Query to fetch all users
+    const users = await connection.query('SELECT id, username, email, role, created_at FROM user');
+    connection.release(); // Release the connection back to the pool
+
+    // Respond with the fetched users
+    console.log('Fetched users:', users);
+    res.json({ success: true, data: users });
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch users' });
+  }
+});
+
 // Define a basic route
 app.get('/', (req, res) => {
   res.send('Welcome to YouthfulGuides.app!');
@@ -74,6 +89,7 @@ app.get('/', (req, res) => {
 
 // Catch-all route for undefined endpoints
 app.use((req, res, next) => {
+  console.log(`404 Error - Requested URL: ${req.originalUrl}`);
   res.status(404).send('Sorry, the requested resource was not found.');
 });
 
