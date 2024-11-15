@@ -181,6 +181,74 @@ app.get('/api/User/GetAllBookings', async (req, res) => {
   }
 });
 
+// Define the /api/User/CreateNewBooking route
+app.post('/api/User/CreateNewBooking', async (req, res) => {
+    const { guide_id, visitor_id, rate, review } = req.body;
+  
+    // Validate input
+    if (!guide_id || !visitor_id || rate < 1 || rate > 10) {
+      return res.status(400).json({ success: false, message: 'Invalid input data' });
+    }
+  
+    try {
+      const connection = await pool.getConnection();
+      console.log('Database connection established for CreateNewBooking');
+  
+      // Ensure guide_id has role 'guide' and visitor_id has role 'visitor'
+      const guide = await connection.query('SELECT role FROM user WHERE id = ? AND role = ?', [guide_id, 'guide']);
+      const visitor = await connection.query('SELECT role FROM user WHERE id = ? AND role = ?', [visitor_id, 'visitor']);
+  
+      if (!guide.length || !visitor.length) {
+        connection.release();
+        return res.status(400).json({ success: false, message: 'Invalid guide or visitor ID' });
+      }
+  
+      const result = await connection.query(
+        'INSERT INTO bookings (guide_id, visitor_id, rate, review) VALUES (?, ?, ?, ?)',
+        [guide_id, visitor_id, rate, review]
+      );
+      connection.release();
+      console.log(`New booking created with ID: ${result.insertId}`);
+      res.status(201).json({ success: true, message: 'Booking created successfully', bookingId: result.insertId });
+    } catch (err) {
+      console.error('Error creating booking:', err);
+      res.status(500).json({ success: false, message: 'Failed to create booking' });
+    }
+  });
+
+// Define the /api/User/UpdateBooking route
+app.put('/api/User/UpdateBooking/:id', async (req, res) => {
+    const bookingId = req.params.id;
+    const { rate, review } = req.body;
+  
+    // Validate input
+    if (rate < 1 || rate > 10 || !review) {
+      return res.status(400).json({ success: false, message: 'Invalid input data' });
+    }
+  
+    try {
+      const connection = await pool.getConnection();
+      console.log(`Database connection established for UpdateBooking with ID: ${bookingId}`);
+  
+      const result = await connection.query(
+        'UPDATE bookings SET rate = ?, review = ? WHERE id = ?',
+        [rate, review, bookingId]
+      );
+      connection.release();
+  
+      if (result.affectedRows === 0) {
+        console.log(`Booking with ID: ${bookingId} not found`);
+        return res.status(404).json({ success: false, message: 'Booking not found' });
+      }
+  
+      console.log(`Booking with ID: ${bookingId} updated successfully`);
+      res.json({ success: true, message: 'Booking updated successfully' });
+    } catch (err) {
+      console.error(`Error updating booking with ID: ${bookingId}`, err);
+      res.status(500).json({ success: false, message: 'Failed to update booking' });
+    }
+  });
+
 // Define a basic route
 app.get('/', (req, res) => {
   res.send('Welcome to YouthfulGuides.app!');
