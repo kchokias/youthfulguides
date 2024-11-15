@@ -65,15 +65,10 @@ app.get('/ping', (req, res) => {
 // Define the /api/User/GetAllUsers route
 app.get('/api/User/GetAllUsers', async (req, res) => {
   try {
-    // Establish a connection to the database
     const connection = await pool.getConnection();
     console.log('Database connection established for GetAllUsers');
-
-    // Query to fetch all users
     const users = await connection.query('SELECT id, username, email, role, created_at FROM user');
-    connection.release(); // Release the connection back to the pool
-
-    // Respond with the fetched users
+    connection.release();
     console.log('Fetched users:', users);
     res.json({ success: true, data: users });
   } catch (err) {
@@ -84,29 +79,84 @@ app.get('/api/User/GetAllUsers', async (req, res) => {
 
 // Define the /api/User/GetUserByUserId route
 app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
-  const userId = req.params.id; // Extract the user ID from the route parameter
-
+  const userId = req.params.id;
   try {
-    // Establish a connection to the database
     const connection = await pool.getConnection();
     console.log(`Database connection established for GetUserByUserId with ID: ${userId}`);
-
-    // Query to fetch the user by ID
     const user = await connection.query('SELECT id, username, email, role, created_at FROM user WHERE id = ?', [userId]);
-    connection.release(); // Release the connection back to the pool
-
-    // Check if user exists
+    connection.release();
     if (user.length === 0) {
       console.log(`User with ID: ${userId} not found`);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-
-    // Respond with the fetched user
     console.log(`Fetched user:`, user[0]);
     res.json({ success: true, data: user[0] });
   } catch (err) {
     console.error(`Error fetching user with ID: ${userId}`, err);
     res.status(500).json({ success: false, message: 'Failed to fetch user' });
+  }
+});
+
+// Define the /api/User/CreateNewUser route
+app.post('/api/User/CreateNewUser', async (req, res) => {
+  const { username, email, password, role } = req.body;
+  try {
+    const connection = await pool.getConnection();
+    console.log('Database connection established for CreateNewUser');
+    const result = await connection.query(
+      'INSERT INTO user (username, email, password, role) VALUES (?, ?, ?, ?)',
+      [username, email, password, role]
+    );
+    connection.release();
+    console.log(`New user created with ID: ${result.insertId}`);
+    res.status(201).json({ success: true, message: 'User created successfully', userId: result.insertId });
+  } catch (err) {
+    console.error('Error creating new user:', err);
+    res.status(500).json({ success: false, message: 'Failed to create user' });
+  }
+});
+
+// Define the /api/User/UpdateUser route
+app.put('/api/User/UpdateUser/:id', async (req, res) => {
+  const userId = req.params.id;
+  const { username, email, password, role } = req.body;
+  try {
+    const connection = await pool.getConnection();
+    console.log(`Database connection established for UpdateUser with ID: ${userId}`);
+    const result = await connection.query(
+      'UPDATE user SET username = ?, email = ?, password = ?, role = ? WHERE id = ?',
+      [username, email, password, role, userId]
+    );
+    connection.release();
+    if (result.affectedRows === 0) {
+      console.log(`User with ID: ${userId} not found`);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    console.log(`User with ID: ${userId} updated successfully`);
+    res.json({ success: true, message: 'User updated successfully' });
+  } catch (err) {
+    console.error(`Error updating user with ID: ${userId}`, err);
+    res.status(500).json({ success: false, message: 'Failed to update user' });
+  }
+});
+
+// Define the /api/User/DeleteUserById route
+app.delete('/api/User/DeleteUserById/:id', async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const connection = await pool.getConnection();
+    console.log(`Database connection established for DeleteUserById with ID: ${userId}`);
+    const result = await connection.query('DELETE FROM user WHERE id = ?', [userId]);
+    connection.release();
+    if (result.affectedRows === 0) {
+      console.log(`User with ID: ${userId} not found`);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    console.log(`User with ID: ${userId} deleted successfully`);
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (err) {
+    console.error(`Error deleting user with ID: ${userId}`, err);
+    res.status(500).json({ success: false, message: 'Failed to delete user' });
   }
 });
 
