@@ -82,6 +82,34 @@ app.get('/api/User/GetAllUsers', async (req, res) => {
   }
 });
 
+// Define the /api/User/GetUserByUserId route
+app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
+  const userId = req.params.id; // Extract the user ID from the route parameter
+
+  try {
+    // Establish a connection to the database
+    const connection = await pool.getConnection();
+    console.log(`Database connection established for GetUserByUserId with ID: ${userId}`);
+
+    // Query to fetch the user by ID
+    const user = await connection.query('SELECT id, username, email, role, created_at FROM user WHERE id = ?', [userId]);
+    connection.release(); // Release the connection back to the pool
+
+    // Check if user exists
+    if (user.length === 0) {
+      console.log(`User with ID: ${userId} not found`);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Respond with the fetched user
+    console.log(`Fetched user:`, user[0]);
+    res.json({ success: true, data: user[0] });
+  } catch (err) {
+    console.error(`Error fetching user with ID: ${userId}`, err);
+    res.status(500).json({ success: false, message: 'Failed to fetch user' });
+  }
+});
+
 // Define a basic route
 app.get('/', (req, res) => {
   res.send('Welcome to YouthfulGuides.app!');
