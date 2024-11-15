@@ -32,11 +32,11 @@ const app = express();
 
 // Database connection pool
 const pool = mariadb.createPool({
-  host: process.env.DB_HOST,      // Database host
-  user: process.env.DB_USER,      // Database user
-  password: process.env.DB_PASSWORD, // Database password
-  database: process.env.DB_NAME,  // Database name
-  port: process.env.DB_PORT       // Database port
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT
 });
 
 // Test database connection
@@ -160,6 +160,27 @@ app.delete('/api/User/DeleteUserById/:id', async (req, res) => {
   }
 });
 
+// Define the /api/User/GetAllBookings route
+app.get('/api/User/GetAllBookings', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    console.log('Database connection established for GetAllBookings');
+    const bookings = await connection.query(
+      `SELECT b.id, b.guide_id, b.visitor_id, b.rate, b.review, b.created_at,
+              g.username AS guide_username, v.username AS visitor_username
+       FROM bookings b
+       JOIN user g ON b.guide_id = g.id
+       JOIN user v ON b.visitor_id = v.id`
+    );
+    connection.release();
+    console.log('Fetched bookings:', bookings);
+    res.json({ success: true, data: bookings });
+  } catch (err) {
+    console.error('Error fetching bookings:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch bookings' });
+  }
+});
+
 // Define a basic route
 app.get('/', (req, res) => {
   res.send('Welcome to YouthfulGuides.app!');
@@ -177,7 +198,7 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something went wrong! Please try again later.');
 });
 
-// Save the day from favico error 500
+// Save the day from favicon error 500
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Start the server
