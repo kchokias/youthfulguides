@@ -51,3 +51,21 @@ PUT https://youthfulguides.app/api/User/UpdateUser/2
     "role": "visitor"
     }
 DELETE https://youthfulguides.app/api/User/DeleteUserById/3
+GET https://youthfulguides.app/api/User/GetAllBookings
+
+
+
+POST https://youthfulguides.app/api/User/CreateNewBooking
+{
+  "guide_id": 1,
+  "visitor_id": 2,
+  "rate": 10,
+  "review": "Amazing experience!"
+}
+
+https://youthfulguides.app/api/User/UpdateBooking/1
+
+{
+  "rate": 8,
+  "review": "Updated review: Great guide, but a bit rushed."
+}
