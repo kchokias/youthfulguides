@@ -1,7 +1,7 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
-/// Import required packages
+//// Import required packages
 const express = require('express');
 const mariadb = require('mariadb');
 const path = require('path');
