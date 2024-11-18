@@ -1,0 +1,39 @@
+#container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  font-family: "Aclonica", sans-serif;
+   /* font-family: "Carter One", system-ui; */
+  font-weight: 400;
+  font-style: normal;
+  font-size: 25px;
+}
+
+#sidebar {
+  width: 200px;
+  height: 100%;
+  background: #000;
+}
+
+#content {
+  flex-grow: 1;
+}
+
+#header {
+  display: flex;
+  width: 100%;
+  padding: 20px 30px;
+  justify-content: space-between;
+  box-shadow: 4px 4px 4px #ccc;
+}
+
+#menu {
+  display: flex;
+  gap:20px
+}
+
+#menu a {
+  text-decoration: none;
+  color: #333;
+  font-size: 18px;
+}
