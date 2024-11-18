@@ -290,6 +290,12 @@ app.put('/api/User/UpdateBooking/:id', async (req, res) => {
     }
   });
 
+  app.get('/test-jwt', (req, res) => {
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign({ userId: 1, role: 'guide' }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });
+    res.json({ success: true, token });
+});
+
 // Define a basic route
 app.get('/', (req, res) => {
   res.send('Welcome to YouthfulGuides.app!');
