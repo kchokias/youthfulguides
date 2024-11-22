@@ -62,20 +62,30 @@ app.get('/ping', (req, res) => {
   res.send('Server is alive!');
 });
 
-// Define the /api/User/GetAllUsers route
-app.get('/api/User/GetAllUsers', async (req, res) => {
+// Middleware: Verify Admin Role
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next(); // Proceed if user is admin
+  } else {
+    res.status(403).json({ success: false, message: 'Access denied: Admins only' });
+  }
+};
+
+// GetAllUseers (Protected sensitive API with admin access)
+app.get('/api/User/GetAllUsers', authenticateToken, isAdmin, async (req, res) => {
   try {
     const connection = await pool.getConnection();
     console.log('Database connection established for GetAllUsers');
     const users = await connection.query('SELECT id, username, email, role, created_at FROM user');
     connection.release();
-    console.log('Fetched users:', users);
     res.json({ success: true, data: users });
   } catch (err) {
     console.error('Error fetching users:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch users' });
   }
 });
+
+
 
 // Define the /api/User/GetUserByUserId route
 app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
