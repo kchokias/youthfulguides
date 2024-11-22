@@ -62,6 +62,52 @@ app.get('/ping', (req, res) => {
   res.send('Server is alive!');
 });
 
+const jwt = require('jsonwebtoken');
+
+// Define the /api/User/Login route
+app.post('/api/User/Login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const connection = await pool.getConnection();
+    console.log('Database connection established for Login');
+
+    // Check if user exists with the given email and password
+    const user = await connection.query('SELECT id, username, email, role FROM user WHERE email = ? AND password = ?', [email, password]);
+    connection.release();
+
+    if (user.length === 0) {
+      console.log('Invalid credentials');
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    const userData = user[0];
+
+    // Create a token
+    const token = jwt.sign(
+      {
+        userId: userData.id,
+        username: userData.username,
+        role: userData.role,
+      },
+      process.env.JWT_SECRET, // Use a secure secret from your .env file
+      { expiresIn: '1h' } // Token expires in 1 hour
+    );
+
+    console.log(`User logged in successfully, token generated for user ID: ${userData.id}`);
+    res.json({ success: true, token, user: { id: userData.id, username: userData.username, role: userData.role } });
+  } catch (err) {
+    console.error('Error during login:', err);
+    res.status(500).json({ success: false, message: 'Failed to login' });
+  }
+});
+
+app.get('/test-jwt', (req, res) => {
+  const jwt = require('jsonwebtoken');
+  const token = jwt.sign({ userId: 1, role: 'guide' }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });
+  res.json({ success: true, token });
+});
+
 // Middleware: Verify Admin Role
 const isAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
@@ -259,52 +305,6 @@ app.put('/api/User/UpdateBooking/:id', async (req, res) => {
     }
   });
 
-
-  const jwt = require('jsonwebtoken');
-
-  // Define the /api/User/Login route
-  app.post('/api/User/Login', async (req, res) => {
-    const { email, password } = req.body;
-  
-    try {
-      const connection = await pool.getConnection();
-      console.log('Database connection established for Login');
-  
-      // Check if user exists with the given email and password
-      const user = await connection.query('SELECT id, username, email, role FROM user WHERE email = ? AND password = ?', [email, password]);
-      connection.release();
-  
-      if (user.length === 0) {
-        console.log('Invalid credentials');
-        return res.status(401).json({ success: false, message: 'Invalid email or password' });
-      }
-  
-      const userData = user[0];
-  
-      // Create a token
-      const token = jwt.sign(
-        {
-          userId: userData.id,
-          username: userData.username,
-          role: userData.role,
-        },
-        process.env.JWT_SECRET, // Use a secure secret from your .env file
-        { expiresIn: '1h' } // Token expires in 1 hour
-      );
-  
-      console.log(`User logged in successfully, token generated for user ID: ${userData.id}`);
-      res.json({ success: true, token, user: { id: userData.id, username: userData.username, role: userData.role } });
-    } catch (err) {
-      console.error('Error during login:', err);
-      res.status(500).json({ success: false, message: 'Failed to login' });
-    }
-  });
-
-  app.get('/test-jwt', (req, res) => {
-    const jwt = require('jsonwebtoken');
-    const token = jwt.sign({ userId: 1, role: 'guide' }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });
-    res.json({ success: true, token });
-});
 
 // Define a basic route
 app.get('/', (req, res) => {
