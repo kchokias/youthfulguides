@@ -69,3 +69,24 @@ https://youthfulguides.app/api/User/UpdateBooking/1
   "rate": 8,
   "review": "Updated review: Great guide, but a bit rushed."
 }
+
+
+
+LOGIN
+	Request Type: POST
+	2.	Endpoint: https://youthfulguides.app/api/User/Login
+	3.	Headers:
+	•	Content-Type: application/json
+	4.	Body (JSON):
+        {
+        "email": "admin@example.com",
+        "password": "securepassword"
+        }
+
+    Test the GetAllUsers API
+	1.	Request Type: GET
+	2.	Endpoint: https://youthfulguides.app/api/User/GetAllUsers
+	3.	Headers:
+	•	Authorization: Bearer <your_token> (replace <your_token> with the token you copied from the login response).
+	•	Content-Type: application/json
+	4.	Send the Request in Postman.
