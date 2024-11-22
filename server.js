@@ -64,24 +64,32 @@ app.get('/ping', (req, res) => {
 
 const jwt = require('jsonwebtoken');
 
-// Define the /api/User/Login route
 app.post('/api/User/Login', async (req, res) => {
   const { email, password } = req.body;
+
+  console.log(`Login attempt with email: ${email}, password: ${password}`);
 
   try {
     const connection = await pool.getConnection();
     console.log('Database connection established for Login');
 
     // Check if user exists with the given email and password
-    const user = await connection.query('SELECT id, username, email, role FROM user WHERE email = ? AND password = ?', [email, password]);
+    const user = await connection.query(
+      'SELECT id, username, email, role FROM user WHERE email = ? AND password = ?',
+      [email, password]
+    );
     connection.release();
 
+    console.log('Query result:', user);
+
     if (user.length === 0) {
-      console.log('Invalid credentials');
+      console.log('Invalid credentials: No user found');
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
     const userData = user[0];
+
+    console.log('User found:', userData);
 
     // Create a token
     const token = jwt.sign(
@@ -90,7 +98,7 @@ app.post('/api/User/Login', async (req, res) => {
         username: userData.username,
         role: userData.role,
       },
-      process.env.JWT_SECRET, // Use a secure secret from your .env file
+      process.env.JWT_SECRET || 'default-secret', // Use a secure secret from your .env file
       { expiresIn: '1h' } // Token expires in 1 hour
     );
 
@@ -100,12 +108,6 @@ app.post('/api/User/Login', async (req, res) => {
     console.error('Error during login:', err);
     res.status(500).json({ success: false, message: 'Failed to login' });
   }
-});
-
-app.get('/test-jwt', (req, res) => {
-  const jwt = require('jsonwebtoken');
-  const token = jwt.sign({ userId: 1, role: 'guide' }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });
-  res.json({ success: true, token });
 });
 
 // Middleware: Verify Admin Role
