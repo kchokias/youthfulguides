@@ -2,10 +2,19 @@
 //require('dotenv').config();
 
 //// Import required packages
+//next two lines are for cors need for the front end requirments
+
 const express = require('express');
+const cors = require('cors'); // Import CORS
 const mariadb = require('mariadb');
 const path = require('path');
 const fs = require('fs');
+
+// Create an instance of Express
+const app = express();
+
+// Enable CORS - Needs to be after app is created
+app.use(cors());
 
 // Create a write stream for logging
 const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
@@ -27,8 +36,7 @@ console.error = function (message) {
   originalError(errorMessage);
 };
 
-// Create an instance of Express
-const app = express();
+
 
 // Database connection pool
 const pool = mariadb.createPool({
