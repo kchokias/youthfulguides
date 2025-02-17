@@ -16,6 +16,7 @@ const app = express();
 // Enable CORS - Needs to be after app is created
 app.use(cors());
 
+
 // Create a write stream for logging
 const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
 
