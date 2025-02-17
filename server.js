@@ -13,25 +13,33 @@ const fs = require('fs');
 // Create an instance of Express
 const app = express();
 
-// Enable CORS with general settings
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Enable CORS with specific frontend origins
+const allowedOrigins = ['http://localhost:4200', 'https://youthfulguides.app'];
 
-// 🔹 Add CORS Headers Manually (Fix 2)
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*"); // Allow all domains (change '*' to your frontend domain)
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  next();
-});
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed for this domain'), false);
+    }
+  },
+  credentials: true, // ✅ Allow cookies, auth headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // ✅ Allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization'] // ✅ Allowed headers
+}));
 
-// Handle preflight requests for CORS (Fix 3)
+// ✅ Handle preflight requests properly
 app.options('*', (req, res) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.sendStatus(200);
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return res.sendStatus(200);
+  }
+  res.sendStatus(403); // If origin is not allowed
 });
 
 // Create a write stream for logging
