@@ -13,9 +13,26 @@ const fs = require('fs');
 // Create an instance of Express
 const app = express();
 
-// Enable CORS - Needs to be after app is created
+// Enable CORS with general settings
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// 🔹 Add CORS Headers Manually (Fix 2)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*"); // Allow all domains (change '*' to your frontend domain)
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  next();
+});
+
+// Handle preflight requests for CORS (Fix 3)
+app.options('*', (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(200);
+});
 
 // Create a write stream for logging
 const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
@@ -23,16 +40,16 @@ const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags
 // Redirect console.log and console.error to both console and log file
 const originalLog = console.log;
 console.log = function (message) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `${timestamp} - LOG: ${message}`;
+  const logTimestamp = new Date().toISOString(); // Renamed 'timestamp' to 'logTimestamp'
+  const logMessage = `${logTimestamp} - LOG: ${message}`;
   logFile.write(logMessage + "\n");
   originalLog(logMessage);
 };
 
 const originalError = console.error;
 console.error = function (message) {
-  const timestamp = new Date().toISOString();
-  const errorMessage = `${timestamp} - ERROR: ${message}`;
+  const errorTimestamp = new Date().toISOString(); // Renamed 'timestamp' to 'errorTimestamp'
+  const errorMessage = `${errorTimestamp} - ERROR: ${message}`;
   logFile.write(errorMessage + "\n");
   originalError(errorMessage);
 };
@@ -72,6 +89,13 @@ app.get('/ping', (req, res) => {
 });
 
 const jwt = require('jsonwebtoken');
+
+app.options('*', (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(200);
+});
 
 app.post('/api/User/Login', async (req, res) => {
   const { email, password } = req.body;
