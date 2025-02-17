@@ -14,7 +14,20 @@ const fs = require('fs');
 const app = express();
 
 // Enable CORS - Needs to be after app is created
-app.use(cors());
+const allowedOrigins = ['http://localhost:3000', 'https://youthfulguides.app']; // Add your frontend URLs
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed for this domain'));
+    }
+  },
+  credentials: true, // Allow credentials (cookies, authorization headers)
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization'] // Allow specific headers
+}));
 
 // Create a write stream for logging
 const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
