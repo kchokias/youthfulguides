@@ -13,21 +13,25 @@ const fs = require('fs');
 // Create an instance of Express
 const app = express();
 
-// Enable CORS - Needs to be after app is created
-const allowedOrigins = ['http://localhost:3000', 'https://youthfulguides.app']; // Add your frontend URLs
+// Enable CORS with general settings
+app.use(cors());
+app.use(express.json());
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS not allowed for this domain'));
-    }
-  },
-  credentials: true, // Allow credentials (cookies, authorization headers)
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
-  allowedHeaders: ['Content-Type', 'Authorization'] // Allow specific headers
-}));
+// 🔹 Add CORS Headers Manually (Fix 2)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*"); // Allow all domains (change '*' to your frontend domain)
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  next();
+});
+
+// Handle preflight requests for CORS (Fix 3)
+app.options('*', (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(200);
+});
 
 // Create a write stream for logging
 const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
