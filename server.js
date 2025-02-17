@@ -181,7 +181,6 @@ app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
 });
 
 // Define the /api/User/CreateNewUser route
-const bcrypt = require('bcrypt');
 
 app.post('/api/User/CreateNewUser', async (req, res) => {
   const { name, surname, username, email, password, role, region, country } = req.body;
@@ -192,15 +191,13 @@ app.post('/api/User/CreateNewUser', async (req, res) => {
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10); // Encrypt password before storing
-
     const connection = await pool.getConnection();
     console.log('Database connection established for CreateNewUser');
 
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, surname, username, email, hashedPassword, role, region, country]
+      [name, surname, username, email, password, role, region, country] // Password stored as plain text
     );
 
     connection.release();
@@ -211,6 +208,7 @@ app.post('/api/User/CreateNewUser', async (req, res) => {
       message: 'User created successfully', 
       userId: result.insertId 
     });
+
 
   } catch (err) {
     console.error('Error creating new user:', err);
