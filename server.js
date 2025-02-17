@@ -83,7 +83,7 @@ app.post('/api/User/Login', async (req, res) => {
 
     // Check if user exists with the given email and password
     const user = await connection.query(
-      'SELECT id, username, email, role FROM user WHERE email = ? AND password = ?',
+      'SELECT id, username, email, role FROM users WHERE email = ? AND password = ?',
       [email, password]
     );
     connection.release();
@@ -144,12 +144,12 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// GetAllUseers (Protected sensitive API with admin access)
+// GetAllUsers (Protected sensitive API with admin access)
 app.get('/api/User/GetAllUsers', authenticateToken, isAdmin, async (req, res) => {
   try {
     const connection = await pool.getConnection();
     console.log('Database connection established for GetAllUsers');
-    const users = await connection.query('SELECT id, username, email, role, created_at FROM user');
+    const users = await connection.query('SELECT id, username, email, role, created_at FROM users');
     connection.release();
     res.json({ success: true, data: users });
   } catch (err) {
@@ -166,7 +166,7 @@ app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
   try {
     const connection = await pool.getConnection();
     console.log(`Database connection established for GetUserByUserId with ID: ${userId}`);
-    const user = await connection.query('SELECT id, username, email, role, created_at FROM user WHERE id = ?', [userId]);
+    const user = await connection.query('SELECT id, username, email, role, created_at FROM users WHERE id = ?', [userId]);
     connection.release();
     if (user.length === 0) {
       console.log(`User with ID: ${userId} not found`);
@@ -181,24 +181,48 @@ app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
 });
 
 // Define the /api/User/CreateNewUser route
+const bcrypt = require('bcrypt');
+
 app.post('/api/User/CreateNewUser', async (req, res) => {
-  const { username, email, password, role } = req.body;
+  const { name, surname, username, email, password, role, region, country } = req.body;
+
+  // Validate required fields
+  if (!name || !surname || !username || !email || !password || !role) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
   try {
+    const hashedPassword = await bcrypt.hash(password, 10); // Encrypt password before storing
+
     const connection = await pool.getConnection();
     console.log('Database connection established for CreateNewUser');
+
     const result = await connection.query(
-      'INSERT INTO user (username, email, password, role) VALUES (?, ?, ?, ?)',
-      [username, email, password, role]
+      `INSERT INTO users (name, surname, username, email, password, role, region, country) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, surname, username, email, hashedPassword, role, region, country]
     );
+
     connection.release();
     console.log(`New user created with ID: ${result.insertId}`);
-    res.status(201).json({ success: true, message: 'User created successfully', userId: result.insertId });
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'User created successfully', 
+      userId: result.insertId 
+    });
+
   } catch (err) {
     console.error('Error creating new user:', err);
+    
+    // Handle duplicate email error
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'Email already exists' });
+    }
+
     res.status(500).json({ success: false, message: 'Failed to create user' });
   }
 });
-
 // Define the /api/User/UpdateUser route
 app.put('/api/User/UpdateUser/:id', async (req, res) => {
   const userId = req.params.id;
@@ -207,7 +231,7 @@ app.put('/api/User/UpdateUser/:id', async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Database connection established for UpdateUser with ID: ${userId}`);
     const result = await connection.query(
-      'UPDATE user SET username = ?, email = ?, password = ?, role = ? WHERE id = ?',
+      'UPDATE users SET username = ?, email = ?, password = ?, role = ? WHERE id = ?',
       [username, email, password, role, userId]
     );
     connection.release();
@@ -229,7 +253,7 @@ app.delete('/api/User/DeleteUserById/:id', async (req, res) => {
   try {
     const connection = await pool.getConnection();
     console.log(`Database connection established for DeleteUserById with ID: ${userId}`);
-    const result = await connection.query('DELETE FROM user WHERE id = ?', [userId]);
+    const result = await connection.query('DELETE FROM users WHERE id = ?', [userId]);
     connection.release();
     if (result.affectedRows === 0) {
       console.log(`User with ID: ${userId} not found`);
@@ -252,8 +276,8 @@ app.get('/api/User/GetAllBookings', async (req, res) => {
       `SELECT b.id, b.guide_id, b.visitor_id, b.rate, b.review, b.created_at,
               g.username AS guide_username, v.username AS visitor_username
        FROM bookings b
-       JOIN user g ON b.guide_id = g.id
-       JOIN user v ON b.visitor_id = v.id`
+       JOIN users g ON b.guide_id = g.id
+       JOIN users v ON b.visitor_id = v.id`
     );
     connection.release();
     console.log('Fetched bookings:', bookings);
@@ -278,8 +302,8 @@ app.post('/api/User/CreateNewBooking', async (req, res) => {
       console.log('Database connection established for CreateNewBooking');
   
       // Ensure guide_id has role 'guide' and visitor_id has role 'visitor'
-      const guide = await connection.query('SELECT role FROM user WHERE id = ? AND role = ?', [guide_id, 'guide']);
-      const visitor = await connection.query('SELECT role FROM user WHERE id = ? AND role = ?', [visitor_id, 'visitor']);
+      const guide = await connection.query('SELECT role FROM users WHERE id = ? AND role = ?', [guide_id, 'guide']);
+      const visitor = await connection.query('SELECT role FROM users WHERE id = ? AND role = ?', [visitor_id, 'visitor']);
   
       if (!guide.length || !visitor.length) {
         connection.release();
