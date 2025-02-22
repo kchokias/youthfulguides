@@ -1,9 +1,6 @@
 // Load environment variables from .env file
 //require('dotenv').config();
 
-//// Import required packages
-//next two lines are for cors need for the front end requirments
-
 const express = require('express');
 const cors = require('cors'); // Import CORS
 const mariadb = require('mariadb');
@@ -29,7 +26,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'] // ✅ Allowed headers
 }));
 
-// ✅ Handle preflight requests properly
+// Handle preflight requests properly
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
@@ -191,7 +188,18 @@ app.get('/api/User/GetAllUsers', authenticateToken, isAdmin, async (req, res) =>
   }
 });
 
+app.get('/api/User/GetUserIdFromToken', authenticateToken, (req, res) => {
+  try {
+    // The authenticateToken middleware already decodes the token
+    const { userId } = req.user; // Extract userId from the decoded token
 
+    console.log(`User ID retrieved from token: ${userId}`);
+    res.json({ success: true, userId });
+  } catch (err) {
+    console.error('Error retrieving user ID from token:', err);
+    res.status(500).json({ success: false, message: 'Failed to retrieve user ID' });
+  }
+});
 
 // Define the /api/User/GetUserByUserId route
 app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
@@ -199,14 +207,18 @@ app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
   try {
     const connection = await pool.getConnection();
     console.log(`Database connection established for GetUserByUserId with ID: ${userId}`);
-    const user = await connection.query('SELECT id, username, email, role, created_at FROM users WHERE id = ?', [userId]);
+
+    // Fetch all user fields
+    const user = await connection.query('SELECT * FROM users WHERE id = ?', [userId]);
     connection.release();
+
     if (user.length === 0) {
       console.log(`User with ID: ${userId} not found`);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
     console.log(`Fetched user:`, user[0]);
-    res.json({ success: true, data: user[0] });
+    res.json({ success: true, data: user[0] }); // Return all user data
   } catch (err) {
     console.error(`Error fetching user with ID: ${userId}`, err);
     res.status(500).json({ success: false, message: 'Failed to fetch user' });
