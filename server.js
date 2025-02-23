@@ -103,17 +103,18 @@ app.options('*', (req, res) => {
 app.post('/api/User/Login', async (req, res) => {
   const { email, password } = req.body;
 
-  console.log(`Login attempt with email: ${email}, password: ${password}`);
+  console.log(`Login attempt with email: ${email}`);
 
   try {
     const connection = await pool.getConnection();
     console.log('Database connection established for Login');
 
-    // Check if user exists with the given email and password
+    // Fetch user details (including the hashed password)
     const user = await connection.query(
-      'SELECT id, username, email, role FROM users WHERE email = ? AND password = ?',
-      [email, password]
+      'SELECT id, username, email, role, password FROM users WHERE email = ?',
+      [email]
     );
+    
     connection.release();
 
     console.log('Query result:', user);
@@ -127,6 +128,13 @@ app.post('/api/User/Login', async (req, res) => {
 
     console.log('User found:', userData);
 
+    // Compare provided password with hashed password
+    const isMatch = await bcrypt.compare(password, userData.password);
+    if (!isMatch) {
+      console.log('Invalid credentials: Incorrect password');
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
     // Create a token
     const token = jwt.sign(
       {
@@ -135,11 +143,12 @@ app.post('/api/User/Login', async (req, res) => {
         role: userData.role,
       },
       process.env.JWT_SECRET || 'default-secret', // Use a secure secret from your .env file
-      { expiresIn: '150h' } // Token expires in 150 TODO change back to 25h
+      { expiresIn: '150h' } // Token expires in 150 hours (TODO change back to 25h if needed)
     );
 
     console.log(`User logged in successfully, token generated for user ID: ${userData.id}`);
     res.json({ success: true, token, user: { id: userData.id, username: userData.username, role: userData.role } });
+
   } catch (err) {
     console.error('Error during login:', err);
     res.status(500).json({ success: false, message: 'Failed to login' });
