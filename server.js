@@ -270,21 +270,58 @@ app.post('/api/User/CreateNewUser', async (req, res) => {
 // Define the /api/User/UpdateUser route
 app.put('/api/User/UpdateUser/:id', async (req, res) => {
   const userId = req.params.id;
-  const { username, email, password, role } = req.body;
+  const { name, surname, password, region, country } = req.body; // Allowed updates
+
   try {
     const connection = await pool.getConnection();
     console.log(`Database connection established for UpdateUser with ID: ${userId}`);
-    const result = await connection.query(
-      'UPDATE users SET username = ?, email = ?, password = ?, role = ? WHERE id = ?',
-      [username, email, password, role, userId]
-    );
+
+    // Check if the user exists
+    const userExists = await connection.query('SELECT id FROM users WHERE id = ?', [userId]);
+    if (userExists.length === 0) {
+      connection.release();
+      console.log(`User with ID: ${userId} not found`);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Prepare fields for update (only update provided values)
+    let updateFields = [];
+    let values = [];
+
+    if (name) { updateFields.push('name = ?'); values.push(name); }
+    if (surname) { updateFields.push('surname = ?'); values.push(surname); }
+    if (region) { updateFields.push('region = ?'); values.push(region); }
+    if (country) { updateFields.push('country = ?'); values.push(country); }
+
+    if (password) { 
+      console.log(`Hashing password for user ID: ${userId}`);
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateFields.push('password = ?'); 
+      values.push(hashedPassword);
+    }
+
+    // If no fields to update, return an error
+    if (updateFields.length === 0) {
+      connection.release();
+      return res.status(400).json({ success: false, message: 'No fields provided for update' });
+    }
+
+    // Build the query dynamically
+    const query = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
+    values.push(userId);
+
+    // Execute the update query
+    const result = await connection.query(query, values);
     connection.release();
+
     if (result.affectedRows === 0) {
       console.log(`User with ID: ${userId} not found`);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
     console.log(`User with ID: ${userId} updated successfully`);
     res.json({ success: true, message: 'User updated successfully' });
+
   } catch (err) {
     console.error(`Error updating user with ID: ${userId}`, err);
     res.status(500).json({ success: false, message: 'Failed to update user' });
