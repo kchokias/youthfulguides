@@ -6,12 +6,10 @@ const cors = require('cors'); // Import CORS
 const mariadb = require('mariadb');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs'); // Use bcryptjs instead of bcrypt
+const app = express();// Create an instance of Express
+const allowedOrigins = ['http://localhost:4200', 'https://youthfulguides.app'];// Enable CORS with specific frontend origins
 
-// Create an instance of Express
-const app = express();
-
-// Enable CORS with specific frontend origins
-const allowedOrigins = ['http://localhost:4200', 'https://youthfulguides.app'];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -225,8 +223,6 @@ app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
   }
 });
 
-// Define the /api/User/CreateNewUser route
-
 app.post('/api/User/CreateNewUser', async (req, res) => {
   const { name, surname, username, email, password, role, region, country } = req.body;
 
@@ -239,10 +235,14 @@ app.post('/api/User/CreateNewUser', async (req, res) => {
     const connection = await pool.getConnection();
     console.log('Database connection established for CreateNewUser');
 
+    // Hash the password before storing using bcryptjs
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, surname, username, email, password, role, region, country] // Password stored as plain text
+      [name, surname, username, email, hashedPassword, role, region, country] // Store hashed password
     );
 
     connection.release();
@@ -253,7 +253,6 @@ app.post('/api/User/CreateNewUser', async (req, res) => {
       message: 'User created successfully', 
       userId: result.insertId 
     });
-
 
   } catch (err) {
     console.error('Error creating new user:', err);
@@ -266,6 +265,8 @@ app.post('/api/User/CreateNewUser', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to create user' });
   }
 });
+
+
 // Define the /api/User/UpdateUser route
 app.put('/api/User/UpdateUser/:id', async (req, res) => {
   const userId = req.params.id;
