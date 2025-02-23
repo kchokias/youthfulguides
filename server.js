@@ -135,7 +135,7 @@ app.post('/api/User/Login', async (req, res) => {
         role: userData.role,
       },
       process.env.JWT_SECRET || 'default-secret', // Use a secure secret from your .env file
-      { expiresIn: '1h' } // Token expires in 1 hour
+      { expiresIn: '150h' } // Token expires in 150 TODO change back to 25h
     );
 
     console.log(`User logged in successfully, token generated for user ID: ${userData.id}`);
