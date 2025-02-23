@@ -209,14 +209,25 @@ app.get('/api/User/GetUserIdFromToken', authenticateToken, (req, res) => {
 });
 
 // Define the /api/User/GetUserByUserId route
-app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
+app.get('/api/User/GetUserByUserId/:id', authenticateToken, async (req, res) => {
   const userId = req.params.id;
+
+  // Only allow users to access their own data OR admins
+  if (req.user.userId !== parseInt(userId) && req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
   try {
     const connection = await pool.getConnection();
     console.log(`Database connection established for GetUserByUserId with ID: ${userId}`);
 
     // Fetch all user fields
-    const user = await connection.query('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = await connection.query(
+      `SELECT id, name, surname, username, email, role, region, country, created_at 
+       FROM users WHERE id = ?`, 
+      [userId]
+    );
+    
     connection.release();
 
     if (user.length === 0) {
@@ -226,6 +237,7 @@ app.get('/api/User/GetUserByUserId/:id', async (req, res) => {
 
     console.log(`Fetched user:`, user[0]);
     res.json({ success: true, data: user[0] }); // Return all user data
+
   } catch (err) {
     console.error(`Error fetching user with ID: ${userId}`, err);
     res.status(500).json({ success: false, message: 'Failed to fetch user' });
