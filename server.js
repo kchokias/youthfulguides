@@ -9,7 +9,8 @@ const fs = require("fs");
 const bcrypt = require("bcryptjs"); // Use bcryptjs instead of bcrypt
 const app = express(); // Create an instance of Express
 const allowedOrigins = ["http://localhost:4200", "https://youthfulguides.app"]; // Enable CORS with specific frontend origins
-
+const bodyParser = require("body-parser");
+app.use(bodyParser.json({ limit: "50mb" })); // Allow large Base64 uploads
 //DB_URL=`1234`
 //DB_URL=`4567`
 
