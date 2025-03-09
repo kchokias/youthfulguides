@@ -10,6 +10,10 @@ const bcrypt = require('bcryptjs'); // Use bcryptjs instead of bcrypt
 const app = express();// Create an instance of Express
 const allowedOrigins = ['http://localhost:4200', 'https://youthfulguides.app'];// Enable CORS with specific frontend origins
 
+//DB_URL=`1234`
+//DB_URL=`4567`
+
+//const dbUrl = env.("DB_URL")
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -486,3 +490,11 @@ app.listen(PORT, () => {
 });
 
 
+
+
+//Container {
+//  Handlers
+//  Repositories
+//  Services
+  // Clients
+//}
