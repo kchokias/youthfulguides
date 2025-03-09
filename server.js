@@ -659,12 +659,10 @@ app.delete(
       // Ensure the logged-in user is the owner of the media
       if (media[0].guide_id !== userId) {
         connection.release();
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Access denied: You can only delete your own media",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: You can only delete your own media",
+        });
       }
 
       // Delete the media
@@ -764,12 +762,10 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     connection.release();
 
     if (result.length === 0) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No profile photo found for this user",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No profile photo found for this user",
+      });
     }
 
     res.json({ success: true, photoData: result[0].photo_data });
@@ -780,49 +776,6 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       .json({ success: false, message: "Failed to retrieve profile photo" });
   }
 });
-
-app.delete(
-  "/api/User/DeleteProfilePhoto",
-  authenticateToken,
-  async (req, res) => {
-    const userId = req.user.userId; // Extract user ID from token
-
-    try {
-      const connection = await pool.getConnection();
-      console.log(
-        `Database connection established for DeleteProfilePhoto for User ID: ${userId}`
-      );
-
-      // Check if the user has a profile photo
-      const result = await connection.query(
-        `DELETE FROM profile_photos WHERE user_id = ?`,
-        [userId]
-      );
-
-      connection.release();
-
-      if (result.affectedRows === 0) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "No profile photo found to delete",
-          });
-      }
-
-      console.log(`Profile photo deleted for User ID: ${userId}`);
-      res.json({
-        success: true,
-        message: "Profile photo deleted successfully",
-      });
-    } catch (err) {
-      console.error("Error deleting profile photo:", err);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to delete profile photo" });
-    }
-  }
-);
 
 // Define a basic route
 app.get("/", (req, res) => {
