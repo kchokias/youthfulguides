@@ -693,8 +693,8 @@ app.post(
   "/api/User/UploadProfilePhoto",
   authenticateToken,
   async (req, res) => {
-    const userId = req.user.userId; // Extract user ID from the token
-    const { photoData } = req.body; // Base64-encoded image
+    const userId = req.user.userId;
+    const { photoData } = req.body; // Base64-encoded image string
 
     if (!photoData) {
       return res
@@ -703,10 +703,12 @@ app.post(
     }
 
     try {
+      // Convert Base64 string to a Buffer
+      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, ""); // Remove metadata prefix
+      const imageBuffer = Buffer.from(base64Data, "base64");
+
       const connection = await pool.getConnection();
-      console.log(
-        `Database connection established for UploadProfilePhoto for User ID: ${userId}`
-      );
+      console.log(`Database connection established for User ID: ${userId}`);
 
       // Check if user already has a profile photo
       const existingPhoto = await connection.query(
@@ -718,14 +720,14 @@ app.post(
         // Update existing profile photo
         await connection.query(
           `UPDATE profile_photos SET photo_data = ?, created_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
-          [photoData, userId]
+          [imageBuffer, userId]
         );
         console.log(`Profile photo updated for User ID: ${userId}`);
       } else {
         // Insert new profile photo
         await connection.query(
           `INSERT INTO profile_photos (user_id, photo_data) VALUES (?, ?)`,
-          [userId, photoData]
+          [userId, imageBuffer]
         );
         console.log(`Profile photo uploaded for User ID: ${userId}`);
       }
