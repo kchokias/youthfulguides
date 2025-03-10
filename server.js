@@ -694,7 +694,7 @@ app.post(
   authenticateToken,
   async (req, res) => {
     const userId = req.user.userId;
-    const { photoData } = req.body; // Base64-encoded image string
+    const { photoData } = req.body; // Expecting Base64 image
 
     if (!photoData) {
       return res
@@ -703,15 +703,14 @@ app.post(
     }
 
     try {
-      // Convert Base64 string to a Buffer
-      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, ""); // Remove metadata prefix
+      const connection = await pool.getConnection();
+
+      // Convert Base64 to Binary Buffer
+      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
       const imageBuffer = Buffer.from(base64Data, "base64");
 
-      const connection = await pool.getConnection();
-      console.log(`Database connection established for User ID: ${userId}`);
-
       // Check if user already has a profile photo
-      const existingPhoto = await connection.query(
+      const [existingPhoto] = await connection.query(
         `SELECT id FROM profile_photos WHERE user_id = ?`,
         [userId]
       );
