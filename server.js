@@ -750,7 +750,9 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
   try {
     const connection = await pool.getConnection();
-    console.log(`Database connection established for User ID: ${userId}`);
+    console.log(
+      `Database connection established for GetProfilePhoto for User ID: ${userId}`
+    );
 
     // Fetch the user's profile photo
     const [rows] = await connection.query(
@@ -760,24 +762,22 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     connection.release();
 
-    if (!rows.length || !rows[0].photo_data) {
-      console.log(`No profile photo found for User ID: ${userId}`);
+    if (rows.length === 0 || !rows[0].photo_data) {
       return res.status(404).json({
         success: false,
         message: "No profile photo found for this user",
       });
     }
 
-    // Debugging
-    console.log(`Raw photo_data from DB:`, rows[0].photo_data);
-    console.log(`Type of photo_data:`, typeof rows[0].photo_data);
-
-    // Convert Buffer to Base64
-    const base64Image = Buffer.from(rows[0].photo_data).toString("base64");
+    // Convert Binary Buffer to Base64
+    const photoBuffer = rows[0].photo_data;
+    const base64Image = `data:image/jpeg;base64,${photoBuffer.toString(
+      "base64"
+    )}`;
 
     res.json({
       success: true,
-      photoData: `data:image/jpeg;base64,${base64Image}`,
+      photoData: base64Image,
     });
   } catch (err) {
     console.error("Error retrieving profile photo:", err);
@@ -786,6 +786,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       .json({ success: false, message: "Failed to retrieve profile photo" });
   }
 });
+
 // Define a basic route
 app.get("/", (req, res) => {
   res.send("Welcome to YouthfulGuides.app!");
