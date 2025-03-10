@@ -694,7 +694,7 @@ app.post(
   authenticateToken,
   async (req, res) => {
     const userId = req.user.userId;
-    const { photoData } = req.body; // Expecting Base64 string
+    const { photoData } = req.body;
 
     if (!photoData) {
       return res
@@ -708,7 +708,7 @@ app.post(
         `Database connection established for UploadProfilePhoto for User ID: ${userId}`
       );
 
-      // Extract base64 string (remove data:image/... part if present)
+      // Extract Base64 data (remove metadata if exists)
       const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
 
       // Convert Base64 to Binary Buffer
@@ -723,27 +723,16 @@ app.post(
           .json({ success: false, message: "Invalid Base64 image format" });
       }
 
-      // Check if user already has a profile photo
-      const [existingPhoto] = await connection.query(
-        `SELECT id FROM profile_photos WHERE user_id = ?`,
-        [userId]
-      );
+      // Use ON DUPLICATE KEY UPDATE to either insert or update the record
+      const query = `
+        INSERT INTO profile_photos (user_id, photo_data) 
+        VALUES (?, ?) 
+        ON DUPLICATE KEY UPDATE photo_data = VALUES(photo_data), created_at = CURRENT_TIMESTAMP;
+      `;
 
-      if (existingPhoto.length > 0) {
-        // Update existing profile photo
-        await connection.query(
-          `UPDATE profile_photos SET photo_data = ?, created_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
-          [imageBuffer, userId]
-        );
-        console.log(`Profile photo updated for User ID: ${userId}`);
-      } else {
-        // Insert new profile photo
-        await connection.query(
-          `INSERT INTO profile_photos (user_id, photo_data) VALUES (?, ?)`,
-          [userId, imageBuffer]
-        );
-        console.log(`Profile photo uploaded for User ID: ${userId}`);
-      }
+      await connection.query(query, [userId, imageBuffer]);
+
+      console.log(`Profile photo saved/updated for User ID: ${userId}`);
 
       connection.release();
 
