@@ -694,7 +694,7 @@ app.post(
   authenticateToken,
   async (req, res) => {
     const userId = req.user.userId;
-    const { photoData } = req.body;
+    let { photoData } = req.body;
 
     if (!photoData) {
       return res
@@ -703,34 +703,28 @@ app.post(
     }
 
     try {
+      // Remove Base64 metadata (e.g., "data:image/jpeg;base64,")
+      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
+
+      // Convert Base64 string to a Buffer
+      const imageBuffer = Buffer.from(base64Data, "base64");
+      if (imageBuffer.length === 0) {
+        throw new Error("Empty buffer detected");
+      }
+
       const connection = await pool.getConnection();
       console.log(
         `Database connection established for UploadProfilePhoto for User ID: ${userId}`
       );
 
-      // Extract Base64 data (remove metadata if exists)
-      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
-
-      // Convert Base64 to Binary Buffer
-      let imageBuffer;
-      try {
-        imageBuffer = Buffer.from(base64Data, "base64");
-        if (imageBuffer.length === 0) throw new Error("Empty buffer detected");
-      } catch (err) {
-        console.error("Base64 conversion error:", err);
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid Base64 image format" });
-      }
-
-      // Use ON DUPLICATE KEY UPDATE to either insert or update the record
+      // SQL query to insert or update profile photo
       const query = `
-        INSERT INTO profile_photos (user_id, photo_data) 
-        VALUES (?, ?) 
-        ON DUPLICATE KEY UPDATE photo_data = VALUES(photo_data), created_at = CURRENT_TIMESTAMP;
+        INSERT INTO profile_photos (user_id, photo_data, created_at) 
+        VALUES (?, ?, CURRENT_TIMESTAMP) 
+        ON DUPLICATE KEY UPDATE photo_data = ?, created_at = CURRENT_TIMESTAMP;
       `;
 
-      await connection.query(query, [userId, imageBuffer]);
+      await connection.query(query, [userId, imageBuffer, imageBuffer]);
 
       console.log(`Profile photo saved/updated for User ID: ${userId}`);
 
@@ -774,7 +768,6 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    // Convert Buffer to Base64
     const photoBuffer = rows[0].photo_data;
 
     if (!Buffer.isBuffer(photoBuffer)) {
@@ -784,11 +777,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
         .json({ success: false, message: "Corrupted photo data" });
     }
 
+    // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
+
+    // Construct the correct Base64 image format
+    const imageType = "image/jpeg"; // Change if needed (e.g., "image/png")
+    const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
       success: true,
-      photoData: `data:image/jpeg;base64,${base64Image}`, // Adjust MIME type if needed
+      photoData: base64Response,
     });
   } catch (err) {
     console.error("Error retrieving profile photo:", err);
