@@ -694,7 +694,7 @@ app.post(
   authenticateToken,
   async (req, res) => {
     const userId = req.user.userId;
-    const { photoData } = req.body; // Expecting Base64 image
+    const { photoData } = req.body; // Expecting Base64 string
 
     if (!photoData) {
       return res
@@ -704,10 +704,24 @@ app.post(
 
     try {
       const connection = await pool.getConnection();
+      console.log(
+        `Database connection established for UploadProfilePhoto for User ID: ${userId}`
+      );
+
+      // Extract base64 string (remove data:image/... part if present)
+      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
 
       // Convert Base64 to Binary Buffer
-      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
-      const imageBuffer = Buffer.from(base64Data, "base64");
+      let imageBuffer;
+      try {
+        imageBuffer = Buffer.from(base64Data, "base64");
+        if (imageBuffer.length === 0) throw new Error("Empty buffer detected");
+      } catch (err) {
+        console.error("Base64 conversion error:", err);
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid Base64 image format" });
+      }
 
       // Check if user already has a profile photo
       const [existingPhoto] = await connection.query(
@@ -740,7 +754,11 @@ app.post(
       console.error("Error uploading profile photo:", err);
       res
         .status(500)
-        .json({ success: false, message: "Failed to upload profile photo" });
+        .json({
+          success: false,
+          message: "Failed to upload profile photo",
+          error: err.message,
+        });
     }
   }
 );
