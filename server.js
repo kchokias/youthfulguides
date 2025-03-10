@@ -754,21 +754,29 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     );
 
     // Fetch the user's profile photo
-    const result = await connection.query(
+    const [rows] = await connection.query(
       `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
     connection.release();
 
-    if (result.length === 0) {
+    if (rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No profile photo found for this user",
       });
     }
 
-    res.json({ success: true, photoData: result[0].photo_data });
+    // Convert Buffer to Base64
+    const photoBuffer = rows[0].photo_data;
+    const base64Image = photoBuffer.toString("base64");
+
+    // Send as Base64 string with proper data URI
+    res.json({
+      success: true,
+      photoData: `data:image/jpeg;base64,${base64Image}`,
+    });
   } catch (err) {
     console.error("Error retrieving profile photo:", err);
     res
