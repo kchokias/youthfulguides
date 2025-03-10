@@ -741,13 +741,11 @@ app.post(
         .json({ success: true, message: "Profile photo saved successfully" });
     } catch (err) {
       console.error("Error uploading profile photo:", err);
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Failed to upload profile photo",
-          error: err.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Failed to upload profile photo",
+        error: err.message,
+      });
     }
   }
 );
@@ -769,28 +767,36 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     connection.release();
 
-    if (rows.length === 0 || !rows[0].photo_data) {
+    if (!rows || rows.length === 0 || !rows[0].photo_data) {
       return res.status(404).json({
         success: false,
         message: "No profile photo found for this user",
       });
     }
 
-    // Convert Binary Buffer to Base64
+    // Convert Buffer to Base64
     const photoBuffer = rows[0].photo_data;
-    const base64Image = `data:image/jpeg;base64,${photoBuffer.toString(
-      "base64"
-    )}`;
+
+    if (!Buffer.isBuffer(photoBuffer)) {
+      console.error("Stored photo data is not a buffer!");
+      return res
+        .status(500)
+        .json({ success: false, message: "Corrupted photo data" });
+    }
+
+    const base64Image = photoBuffer.toString("base64");
 
     res.json({
       success: true,
-      photoData: base64Image,
+      photoData: `data:image/jpeg;base64,${base64Image}`, // Adjust MIME type if needed
     });
   } catch (err) {
     console.error("Error retrieving profile photo:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to retrieve profile photo" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve profile photo",
+      error: err.message,
+    });
   }
 });
 
