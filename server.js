@@ -757,17 +757,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch HEX-encoded photo data from database
+    // Fetch all columns from the database
     const [rows] = await connection.query(
-      `SELECT HEX(photo_data) AS hex_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT id, user_id, created_at, photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
-    console.log("Database raw response:", rows); // Log database output
+    console.log("✅ Full Database Response:", rows); // Log full database response
     connection.release();
 
-    // Check if query returned data
-    if (!rows || rows.length === 0 || !rows[0]?.hex_data) {
+    if (!rows || rows.length === 0) {
       console.warn(`No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -775,19 +774,35 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    // Convert HEX to Buffer
-    const hexData = rows[0].hex_data;
-    const photoBuffer = Buffer.from(hexData, "hex");
+    const result = rows[0];
+    console.log("✅ Full Row Data:", result);
+
+    if (!result || !result.photo_data) {
+      console.warn(`Photo data is undefined or NULL for User ID: ${userId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Profile photo exists but data is missing",
+      });
+    }
+
+    // Ensure `photo_data` is a Buffer
+    if (!Buffer.isBuffer(result.photo_data)) {
+      console.error("❌ Retrieved data is not a Buffer:", result.photo_data);
+      return res.status(500).json({
+        success: false,
+        message: "Corrupted image data",
+      });
+    }
 
     console.log(
-      `✅ Successfully converted HEX data. Buffer size: ${photoBuffer.length} bytes`
+      `✅ Successfully retrieved image. Buffer size: ${result.photo_data.length} bytes`
     );
 
     // Convert Buffer to Base64
-    const base64Image = photoBuffer.toString("base64");
+    const base64Image = result.photo_data.toString("base64");
 
-    // Construct Base64 image format
-    const imageType = "image/jpeg"; // Adjust dynamically if needed
+    // Construct Base64 string
+    const imageType = "image/jpeg";
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
@@ -803,7 +818,6 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     });
   }
 });
-
 // Define a basic route
 app.get("/", (req, res) => {
   res.send("Welcome to YouthfulGuides.app!");
