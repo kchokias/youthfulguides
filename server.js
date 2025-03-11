@@ -832,6 +832,44 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   }
 });
 
+app.get("/api/User/DebugPhoto/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const connection = await pool.getConnection();
+    console.log(`🔍 Debugging profile photo for User ID: ${userId}`);
+
+    // Fetch ALL data for user_id = 23 (without selecting only photo_data)
+    const [rows] = await connection.query(
+      `SELECT * FROM profile_photos WHERE user_id = ?`,
+      [userId]
+    );
+
+    connection.release();
+
+    console.log("✅ Full Raw Query Response:", JSON.stringify(rows, null, 2));
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No profile photo found for this user (DEBUG MODE)",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("❌ Error in DebugPhoto API:", err);
+    res.status(500).json({
+      success: false,
+      message: "Error debugging profile photo",
+      error: err.message,
+    });
+  }
+});
+
 app.get("/api/User/TestPhoto/:userId", async (req, res) => {
   const userId = req.params.userId;
 
