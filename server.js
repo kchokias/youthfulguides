@@ -750,17 +750,18 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Query the database for the image
+    // Fetch profile photo from the database
     const [rows] = await connection.query(
       `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
-    console.log("Raw database response:", rows); // Log what comes from the database
+    console.log("Database raw response:", rows); // Log what the database actually returns
+
     connection.release();
 
-    // Ensure data exists
-    if (!rows || rows.length === 0 || !rows[0].photo_data) {
+    // If no rows returned, log and return error
+    if (!rows || rows.length === 0) {
       console.warn(`No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -768,8 +769,20 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const photoBuffer = rows[0].photo_data; // Get BLOB data
+    const result = rows[0]; // Log exact structure
+    console.log("Database row structure:", result); // Debugging
 
+    if (!result || !result.photo_data) {
+      console.warn(`Photo data is undefined or null for User ID: ${userId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Profile photo exists but is empty",
+      });
+    }
+
+    const photoBuffer = result.photo_data;
+
+    // Ensure it's a Buffer before proceeding
     if (!Buffer.isBuffer(photoBuffer)) {
       console.error("Retrieved data is not a buffer:", photoBuffer);
       return res.status(500).json({
@@ -783,7 +796,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
-    // Construct Base64 string with proper format
+    // Construct Base64 response
     const imageType = "image/jpeg"; // Adjust dynamically if needed
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
