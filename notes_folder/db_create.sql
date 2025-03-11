@@ -1,19 +1,23 @@
 
 -- current version of create table
-CREATE TABLE user (
-    id INT AUTO_INCREMENT PRIMARY KEY, -- Auto-increment ID for unique identification
-    username VARCHAR(50) NOT NULL,    -- Username of the user
-    email VARCHAR(100) NOT NULL UNIQUE, -- Email address, unique for each user
-    password VARCHAR(255) NOT NULL,   -- Password (hashed for security)
-    role ENUM('guide', 'visitor') DEFAULT 'visitor', -- Role (guide or visitor), default to 'visitor'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp of user creation
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY, -- Auto-increment ID as primary key
+    name VARCHAR(50) NOT NULL, -- First name of the user
+    surname VARCHAR(50) NOT NULL, -- Surname (last name) of the user
+    username VARCHAR(50) NOT NULL, -- Username of the user
+    email VARCHAR(100) NOT NULL UNIQUE, -- Email address, unique but not primary key
+    password VARCHAR(255) NOT NULL, -- Password (hashed for security)
+    role ENUM('guide', 'visitor', 'admin') DEFAULT 'visitor', -- Role (guide, visitor, or admin), default to 'visitor'
+    region VARCHAR(100), -- Region of the user
+    country VARCHAR(100), -- Country of the user
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp for record creation
 );
-
 -- first insert on the table
-INSERT INTO user (username, email, password, role)
-VALUES
-('guide_user', 'guide@example.com', 'hashed_password_1', 'guide'),
-('visitor_user', 'visitor@example.com', 'hashed_password_2', 'visitor');
+INSERT INTO user (name, surname, username, email, password, role, region, country, created_at) 
+VALUES 
+('John', 'Doe', 'johndoe', 'john.doe@example.com', 'hashedpassword123', 'admin', 'Crete', 'Greece', NOW()),
+('Maria', 'Smith', 'mariasmith', 'maria.smith@example.com', 'hashedpassword456', 'guide', 'Athens', 'Greece', NOW()),
+('Alex', 'Johnson', 'alexjohnson', 'alex.johnson@example.com', 'hashedpassword789', 'visitor', 'Thessaloniki', 'Greece', NOW());
 
 
 -- booking table create and relations
@@ -28,6 +32,22 @@ CREATE TABLE bookings (
         ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (visitor_id) REFERENCES user(id)        -- Connect visitor_id to user(id)
         ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE media (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    guide_id INT NOT NULL,
+    media_data TEXT NOT NULL, -- Stores Base64-encoded images
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (guide_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE profile_photos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE, -- Each user has only one profile photo
+    photo_data TEXT NOT NULL, -- Stores Base64-encoded profile photo
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 --first booking
@@ -90,3 +110,8 @@ LOGIN
 	•	Authorization: Bearer <your_token> (replace <your_token> with the token you copied from the login response).
 	•	Content-Type: application/json
 	4.	Send the Request in Postman.
+
+
+
+
+

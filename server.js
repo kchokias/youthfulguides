@@ -703,11 +703,10 @@ app.post(
     }
 
     try {
-      // Remove Base64 metadata (e.g., "data:image/jpeg;base64,")
-      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
-
-      // Convert Base64 string to a Buffer
+      // Ensure Base64 data is clean
+      const base64Data = photoData.split(",")[1]; // Extract actual Base64 content
       const imageBuffer = Buffer.from(base64Data, "base64");
+
       if (imageBuffer.length === 0) {
         throw new Error("Empty buffer detected");
       }
@@ -721,10 +720,10 @@ app.post(
       const query = `
         INSERT INTO profile_photos (user_id, photo_data, created_at) 
         VALUES (?, ?, CURRENT_TIMESTAMP) 
-        ON DUPLICATE KEY UPDATE photo_data = ?, created_at = CURRENT_TIMESTAMP;
+        ON DUPLICATE KEY UPDATE photo_data = VALUES(photo_data), created_at = CURRENT_TIMESTAMP;
       `;
 
-      await connection.query(query, [userId, imageBuffer, imageBuffer]);
+      await connection.query(query, [userId, imageBuffer]);
 
       console.log(`Profile photo saved/updated for User ID: ${userId}`);
 
@@ -777,11 +776,13 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
         .json({ success: false, message: "Corrupted photo data" });
     }
 
+    // Determine image type dynamically (optional: store image type in DB)
+    const imageType = "image/jpeg"; // Change if needed (e.g., "image/png")
+
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
     // Construct the correct Base64 image format
-    const imageType = "image/jpeg"; // Change if needed (e.g., "image/png")
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
