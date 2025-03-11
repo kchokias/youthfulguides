@@ -750,18 +750,17 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch profile photo
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT HEX(photo_data) AS hex_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
-    console.log("Raw database response:", rows); // Log what the query actually returns
-
     connection.release();
 
-    // Ensure the query returned valid data
-    if (!rows || rows.length === 0) {
+    // Debugging: Log what the query returned
+    console.log("Database response:", rows);
+
+    if (!rows || rows.length === 0 || !rows[0].hex_data) {
       console.warn(`No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -769,18 +768,19 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const result = rows[0]; // Ensure structure is correct
-    console.log("Database row structure:", result); // Debug output
+    const hexData = rows[0].hex_data;
 
-    if (!result || !result.photo_data) {
-      console.warn(`Photo data is undefined or null for User ID: ${userId}`);
+    // Convert Hex to Buffer
+    const photoBuffer = Buffer.from(hexData, "hex");
+
+    // Ensure valid buffer before conversion
+    if (photoBuffer.length === 0) {
+      console.warn(`Profile photo data is empty for User ID: ${userId}`);
       return res.status(500).json({
         success: false,
         message: "Profile photo exists but is empty",
       });
     }
-
-    const photoBuffer = result.photo_data;
 
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
