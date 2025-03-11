@@ -77,6 +77,8 @@ const pool = mariadb.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   connectionLimit: 10,
+  supportBigNumbers: true,
+  bigNumberStrings: true,
   typeCast: function (field, next) {
     if (field.type === "BLOB") {
       return field.buffer(); // Ensure BLOBs are returned as Buffers
@@ -710,29 +712,31 @@ app.post(
     }
 
     try {
-      // Ensure Base64 data is clean
-      const base64Data = photoData.split(",")[1]; // Extract actual Base64 content
+      // Remove metadata and convert Base64 to Buffer
+      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
       const imageBuffer = Buffer.from(base64Data, "base64");
 
       if (imageBuffer.length === 0) {
         throw new Error("Empty buffer detected");
       }
 
-      const connection = await pool.getConnection();
       console.log(
-        `Database connection established for UploadProfilePhoto for User ID: ${userId}`
+        `Uploading image for User ID: ${userId}, Size: ${imageBuffer.length} bytes`
       );
 
-      // SQL query to insert or update profile photo
-      const query = `
-        INSERT INTO profile_photos (user_id, photo_data, created_at) 
-        VALUES (?, ?, CURRENT_TIMESTAMP) 
-        ON DUPLICATE KEY UPDATE photo_data = VALUES(photo_data), created_at = CURRENT_TIMESTAMP;
-      `;
+      const connection = await pool.getConnection();
 
-      await connection.query(query, [userId, imageBuffer]);
+      // Store binary data into the LONGBLOB column
+      await connection.query(
+        `INSERT INTO profile_photos (user_id, photo_data, created_at) 
+           VALUES (?, ?, CURRENT_TIMESTAMP) 
+           ON DUPLICATE KEY UPDATE photo_data = VALUES(photo_data), created_at = CURRENT_TIMESTAMP;`,
+        [userId, imageBuffer]
+      );
 
-      console.log(`Profile photo saved/updated for User ID: ${userId}`);
+      console.log(
+        `✅ Profile photo successfully stored for User ID: ${userId}`
+      );
 
       connection.release();
 
@@ -740,7 +744,7 @@ app.post(
         .status(201)
         .json({ success: true, message: "Profile photo saved successfully" });
     } catch (err) {
-      console.error("Error uploading profile photo:", err);
+      console.error("❌ Error uploading profile photo:", err);
       res.status(500).json({
         success: false,
         message: "Failed to upload profile photo",
@@ -757,15 +761,17 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
+    // Fetch photo_data as binary
     const [rows] = await connection.query(
-      `SELECT id, user_id, created_at, photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
-    console.log("✅ Full Database Response:", rows);
     connection.release();
 
-    if (!rows || rows.length === 0) {
+    console.log("✅ Database raw response:", rows);
+
+    if (!rows || rows.length === 0 || !rows[0]?.photo_data) {
       console.warn(`No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -773,27 +779,25 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const result = rows[0];
-    console.log("✅ Full Row Data:", result);
+    const photoBuffer = rows[0].photo_data;
 
-    if (!result || !result.photo_data) {
-      console.warn(`Photo data is undefined or NULL for User ID: ${userId}`);
+    // Ensure `photo_data` is a Buffer
+    if (!Buffer.isBuffer(photoBuffer)) {
+      console.error("❌ Retrieved data is not a Buffer:", photoBuffer);
       return res.status(500).json({
         success: false,
-        message: "Profile photo exists but data is missing",
+        message: "Corrupted image data",
       });
     }
 
-    // **Force MariaDB to return a Buffer**
-    const photoBuffer = Buffer.from(result.photo_data);
     console.log(
-      `✅ Successfully retrieved BLOB data. Buffer size: ${photoBuffer.length} bytes`
+      `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
     );
 
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
-    // Construct Base64 response
+    // Construct Base64 string
     const imageType = "image/jpeg";
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
