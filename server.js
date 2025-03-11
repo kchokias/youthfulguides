@@ -761,7 +761,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch photo_data as binary
+    // Fetch binary data properly
     const [rows] = await connection.query(
       `SELECT CAST(photo_data AS BINARY) AS photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
@@ -769,7 +769,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     connection.release();
 
-    console.log("✅ Database raw response:", rows);
+    console.log("✅ ✅ Database raw response:", rows);
 
     if (!rows || rows.length === 0 || !rows[0]?.photo_data) {
       console.warn(`No profile photo found for User ID: ${userId}`);
@@ -781,7 +781,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     const photoBuffer = rows[0].photo_data;
 
-    // Ensure `photo_data` is a Buffer
+    // Ensure data is a Buffer
     if (!Buffer.isBuffer(photoBuffer)) {
       console.error("❌ Retrieved data is not a Buffer:", photoBuffer);
       return res.status(500).json({
@@ -797,8 +797,11 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
-    // Construct Base64 string
-    const imageType = "image/jpeg";
+    // Identify image type dynamically
+    let imageType = "image/png"; // Default to PNG
+    if (base64Image.startsWith("/9j/")) imageType = "image/jpeg"; // JPEG header starts with `/9j/`
+
+    // Construct Base64 response
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
