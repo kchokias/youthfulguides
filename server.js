@@ -80,7 +80,7 @@ const pool = mariadb.createPool({
   supportBigNumbers: true,
   bigNumberStrings: true,
   typeCast: function (field, next) {
-    if (field.type === "BLOB") {
+    if (field.type === "BLOB" || field.type === "LONGBLOB") {
       return field.buffer(); // Ensure BLOBs are returned as Buffers
     }
     return next();
