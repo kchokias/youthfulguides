@@ -748,11 +748,9 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
   try {
     const connection = await pool.getConnection();
-    console.log(
-      `Database connection established for GetProfilePhoto for User ID: ${userId}`
-    );
+    console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch the user's profile photo
+    // Fetch profile photo from database
     const [rows] = await connection.query(
       `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
@@ -760,7 +758,9 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     connection.release();
 
-    if (!rows || rows.length === 0 || !rows[0].photo_data) {
+    // Ensure we have valid data
+    if (!rows || rows.length === 0) {
+      console.warn(`No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
         message: "No profile photo found for this user",
@@ -769,20 +769,19 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     const photoBuffer = rows[0].photo_data;
 
-    if (!Buffer.isBuffer(photoBuffer)) {
-      console.error("Stored photo data is not a buffer!");
-      return res
-        .status(500)
-        .json({ success: false, message: "Corrupted photo data" });
+    if (!photoBuffer || photoBuffer.length === 0) {
+      console.warn(`Profile photo data is empty for User ID: ${userId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Profile photo exists but is empty",
+      });
     }
-
-    // Determine image type dynamically (optional: store image type in DB)
-    const imageType = "image/jpeg"; // Change if needed (e.g., "image/png")
 
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
-    // Construct the correct Base64 image format
+    // Construct Base64 string with the correct format
+    const imageType = "image/jpeg"; // Change dynamically if needed
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
