@@ -757,9 +757,9 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch all columns from the database
+    // Fetch photo_data as HEX
     const [rows] = await connection.query(
-      `SELECT id, user_id, created_at, photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT id, user_id, created_at, HEX(photo_data) AS hex_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
@@ -777,7 +777,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const result = rows[0];
     console.log("✅ Full Row Data:", result);
 
-    if (!result || !result.photo_data) {
+    if (!result || !result.hex_data) {
       console.warn(`Photo data is undefined or NULL for User ID: ${userId}`);
       return res.status(500).json({
         success: false,
@@ -785,21 +785,14 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    // Ensure `photo_data` is a Buffer
-    if (!Buffer.isBuffer(result.photo_data)) {
-      console.error("❌ Retrieved data is not a Buffer:", result.photo_data);
-      return res.status(500).json({
-        success: false,
-        message: "Corrupted image data",
-      });
-    }
-
+    // Convert HEX to Buffer
+    const photoBuffer = Buffer.from(result.hex_data, "hex");
     console.log(
-      `✅ Successfully retrieved image. Buffer size: ${result.photo_data.length} bytes`
+      `✅ Successfully converted HEX data. Buffer size: ${photoBuffer.length} bytes`
     );
 
     // Convert Buffer to Base64
-    const base64Image = result.photo_data.toString("base64");
+    const base64Image = photoBuffer.toString("base64");
 
     // Construct Base64 string
     const imageType = "image/jpeg";
@@ -818,6 +811,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     });
   }
 });
+
 // Define a basic route
 app.get("/", (req, res) => {
   res.send("Welcome to YouthfulGuides.app!");
