@@ -751,16 +751,15 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
     const [rows] = await connection.query(
-      `SELECT HEX(photo_data) AS hex_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
+    console.log("Raw database response:", rows); // Log database output
     connection.release();
 
-    // Debugging: Log what the query returned
-    console.log("Database response:", rows);
-
-    if (!rows || rows.length === 0 || !rows[0].hex_data) {
+    // Debugging: Check if rows exist
+    if (!rows || rows.length === 0) {
       console.warn(`No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -768,17 +767,25 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const hexData = rows[0].hex_data;
+    const result = rows[0]; // Ensure correct structure
+    console.log("Database row structure:", result); // Debug output
 
-    // Convert Hex to Buffer
-    const photoBuffer = Buffer.from(hexData, "hex");
-
-    // Ensure valid buffer before conversion
-    if (photoBuffer.length === 0) {
-      console.warn(`Profile photo data is empty for User ID: ${userId}`);
+    // Check if photo_data exists
+    if (!result || !result.photo_data) {
+      console.warn(`Photo data is missing for User ID: ${userId}`);
       return res.status(500).json({
         success: false,
-        message: "Profile photo exists but is empty",
+        message: "Profile photo exists but data is missing",
+      });
+    }
+
+    const photoBuffer = result.photo_data;
+
+    if (!Buffer.isBuffer(photoBuffer)) {
+      console.error("Retrieved data is not a buffer:", photoBuffer);
+      return res.status(500).json({
+        success: false,
+        message: "Corrupted image data",
       });
     }
 
