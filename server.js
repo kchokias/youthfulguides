@@ -762,17 +762,17 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Execute query and LOG full response
+    // Fetch binary data properly
     const [rows] = await connection.query(
-      `SELECT CONVERT(photo_data USING BINARY) AS photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
-    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
     connection.release();
 
-    // Check if the response is empty
-    if (!rows || rows.length === 0) {
+    console.log("✅ Raw Database Response:", JSON.stringify(rows, null, 2));
+
+    if (!rows || rows.length === 0 || !rows[0]?.photo_data) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -780,24 +780,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const result = rows[0];
-    console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
+    let photoBuffer = rows[0].photo_data;
 
-    // Check if `photo_data` exists
-    if (!result || !result.photo_data) {
-      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
-      return res.status(500).json({
-        success: false,
-        message: "Profile photo exists but data is missing",
-      });
+    // **🚨 Extract the actual buffer data 🚨**
+    if (photoBuffer?.type === "Buffer" && Array.isArray(photoBuffer.data)) {
+      photoBuffer = Buffer.from(photoBuffer.data);
     }
 
-    // LOG TYPE OF DATA RECEIVED
-    console.log("✅ Type of Retrieved Data:", typeof result.photo_data);
-
-    // Ensure `photo_data` is a Buffer
-    if (!Buffer.isBuffer(result.photo_data)) {
-      console.error("❌ Retrieved data is NOT a Buffer:", result.photo_data);
+    // Ensure `photo_data` is a valid Buffer
+    if (!Buffer.isBuffer(photoBuffer)) {
+      console.error("❌ Retrieved data is NOT a Buffer:", photoBuffer);
       return res.status(500).json({
         success: false,
         message: "Corrupted image data",
@@ -805,11 +797,11 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     }
 
     console.log(
-      `✅ Successfully retrieved image. Buffer size: ${result.photo_data.length} bytes`
+      `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
     );
 
     // Convert Buffer to Base64
-    const base64Image = result.photo_data.toString("base64");
+    const base64Image = photoBuffer.toString("base64");
 
     // Identify image type dynamically
     let imageType = "image/png"; // Default to PNG
