@@ -713,7 +713,7 @@ app.post(
 
     try {
       // Remove metadata and convert Base64 to Buffer
-      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, "");
+      const base64Data = photoData.split(",")[1]; // Extract only Base64 content
       const imageBuffer = Buffer.from(base64Data, "base64");
 
       if (imageBuffer.length === 0) {
@@ -763,7 +763,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     // Fetch photo_data as binary
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT CAST(photo_data AS BINARY) AS photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
