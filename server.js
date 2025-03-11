@@ -750,17 +750,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch profile photo from the database
+    // Fetch profile photo
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ? LIMIT 1`,
       [userId]
     );
 
-    console.log("Database raw response:", rows); // Log what the database actually returns
-
+    console.log("Database raw response:", rows); // Log full response
     connection.release();
 
-    // If no rows returned, log and return error
+    // Check if the response is empty
     if (!rows || rows.length === 0) {
       console.warn(`No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
@@ -769,20 +768,22 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const result = rows[0]; // Log exact structure
-    console.log("Database row structure:", result); // Debugging
+    // Log the actual structure
+    const result = rows[0];
+    console.log("Database row structure:", result);
 
+    // Check if photo_data is valid
     if (!result || !result.photo_data) {
       console.warn(`Photo data is undefined or null for User ID: ${userId}`);
       return res.status(500).json({
         success: false,
-        message: "Profile photo exists but is empty",
+        message: "Profile photo exists but data is missing",
       });
     }
 
     const photoBuffer = result.photo_data;
 
-    // Ensure it's a Buffer before proceeding
+    // Ensure we are dealing with a Buffer
     if (!Buffer.isBuffer(photoBuffer)) {
       console.error("Retrieved data is not a buffer:", photoBuffer);
       return res.status(500).json({
@@ -796,7 +797,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
-    // Construct Base64 response
+    // Construct Base64 string
     const imageType = "image/jpeg"; // Adjust dynamically if needed
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
