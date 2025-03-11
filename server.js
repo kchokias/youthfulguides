@@ -79,9 +79,10 @@ const pool = mariadb.createPool({
   connectionLimit: 10,
   supportBigNumbers: true,
   bigNumberStrings: true,
+  multipleStatements: true,
   typeCast: function (field, next) {
     if (field.type === "BLOB" || field.type === "LONGBLOB") {
-      return field.buffer(); // Ensure BLOBs are returned as Buffers
+      return field.buffer(); // Ensure MariaDB returns binary data
     }
     return next();
   },
@@ -761,9 +762,9 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Force MariaDB to return BLOB data properly
+    // Fetch binary data properly
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT CONVERT(photo_data USING BINARY) AS photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
