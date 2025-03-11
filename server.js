@@ -752,7 +752,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     // Fetch profile photo
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ? LIMIT 1`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
@@ -781,7 +781,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const photoBuffer = result.photo_data;
+    const photoBuffer = Buffer.from(result.photo_data); // Convert BLOB to Buffer
 
     // Ensure we are dealing with a Buffer
     if (!Buffer.isBuffer(photoBuffer)) {
