@@ -76,6 +76,13 @@ const pool = mariadb.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  connectionLimit: 10,
+  typeCast: function (field, next) {
+    if (field.type === "BLOB") {
+      return field.buffer(); // Ensure BLOBs are returned as Buffers
+    }
+    return next();
+  },
 });
 
 // Test database connection
