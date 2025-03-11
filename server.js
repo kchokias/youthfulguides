@@ -757,13 +757,12 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch photo_data as HEX
     const [rows] = await connection.query(
-      `SELECT id, user_id, created_at, HEX(photo_data) AS hex_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT id, user_id, created_at, photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
-    console.log("✅ Full Database Response:", rows); // Log full database response
+    console.log("✅ Full Database Response:", rows);
     connection.release();
 
     if (!rows || rows.length === 0) {
@@ -777,7 +776,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const result = rows[0];
     console.log("✅ Full Row Data:", result);
 
-    if (!result || !result.hex_data) {
+    if (!result || !result.photo_data) {
       console.warn(`Photo data is undefined or NULL for User ID: ${userId}`);
       return res.status(500).json({
         success: false,
@@ -785,16 +784,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    // Convert HEX to Buffer
-    const photoBuffer = Buffer.from(result.hex_data, "hex");
+    // **Force MariaDB to return a Buffer**
+    const photoBuffer = Buffer.from(result.photo_data);
     console.log(
-      `✅ Successfully converted HEX data. Buffer size: ${photoBuffer.length} bytes`
+      `✅ Successfully retrieved BLOB data. Buffer size: ${photoBuffer.length} bytes`
     );
 
     // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
-    // Construct Base64 string
+    // Construct Base64 response
     const imageType = "image/jpeg";
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
