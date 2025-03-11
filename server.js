@@ -759,7 +759,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     // Fetch profile photo
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT * FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
