@@ -762,29 +762,42 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch binary data properly
+    // Execute query and LOG full response
     const [rows] = await connection.query(
       `SELECT CONVERT(photo_data USING BINARY) AS photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
+    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
     connection.release();
 
-    console.log("✅ Database raw response:", rows);
-
-    if (!rows || rows.length === 0 || !rows[0]?.photo_data) {
-      console.warn(`No profile photo found for User ID: ${userId}`);
+    // Check if the response is empty
+    if (!rows || rows.length === 0) {
+      console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
         message: "No profile photo found for this user",
       });
     }
 
-    const photoBuffer = rows[0].photo_data;
+    const result = rows[0];
+    console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
+
+    // Check if `photo_data` exists
+    if (!result || !result.photo_data) {
+      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Profile photo exists but data is missing",
+      });
+    }
+
+    // LOG TYPE OF DATA RECEIVED
+    console.log("✅ Type of Retrieved Data:", typeof result.photo_data);
 
     // Ensure `photo_data` is a Buffer
-    if (!Buffer.isBuffer(photoBuffer)) {
-      console.error("❌ Retrieved data is not a Buffer:", photoBuffer);
+    if (!Buffer.isBuffer(result.photo_data)) {
+      console.error("❌ Retrieved data is NOT a Buffer:", result.photo_data);
       return res.status(500).json({
         success: false,
         message: "Corrupted image data",
@@ -792,11 +805,11 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     }
 
     console.log(
-      `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
+      `✅ Successfully retrieved image. Buffer size: ${result.photo_data.length} bytes`
     );
 
     // Convert Buffer to Base64
-    const base64Image = photoBuffer.toString("base64");
+    const base64Image = result.photo_data.toString("base64");
 
     // Identify image type dynamically
     let imageType = "image/png"; // Default to PNG
