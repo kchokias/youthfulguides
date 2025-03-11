@@ -761,15 +761,15 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch binary data properly
+    // Force MariaDB to return BLOB data properly
     const [rows] = await connection.query(
-      `SELECT CONVERT(photo_data USING BINARY) AS photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
     connection.release();
 
-    console.log("✅ ✅ Database raw response:", rows);
+    console.log("✅ Database raw response:", rows);
 
     if (!rows || rows.length === 0 || !rows[0]?.photo_data) {
       console.warn(`No profile photo found for User ID: ${userId}`);
@@ -781,7 +781,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     const photoBuffer = rows[0].photo_data;
 
-    // Ensure data is a Buffer
+    // Ensure `photo_data` is a Buffer
     if (!Buffer.isBuffer(photoBuffer)) {
       console.error("❌ Retrieved data is not a Buffer:", photoBuffer);
       return res.status(500).json({
