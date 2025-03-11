@@ -818,6 +818,47 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   }
 });
 
+app.get("/api/User/TestPhoto/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const connection = await pool.getConnection();
+    console.log(`Fetching profile photo (TEST) for User ID: ${userId}`);
+
+    // Fetch only first 100 bytes as HEX
+    const [rows] = await connection.query(
+      `SELECT HEX(SUBSTRING(photo_data, 1, 100)) AS hex_preview, LENGTH(photo_data) AS size 
+           FROM profile_photos 
+           WHERE user_id = ?`,
+      [userId]
+    );
+
+    connection.release();
+
+    console.log("✅ Database raw response:", rows);
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No profile photo found for this user",
+      });
+    }
+
+    res.json({
+      success: true,
+      size: rows[0]?.size,
+      hex_preview: rows[0]?.hex_preview,
+    });
+  } catch (err) {
+    console.error("❌ Error retrieving profile photo:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve profile photo",
+      error: err.message,
+    });
+  }
+});
+
 // Define a basic route
 app.get("/", (req, res) => {
   res.send("Welcome to YouthfulGuides.app!");
