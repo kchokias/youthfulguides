@@ -772,7 +772,6 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       [userId]
     );
 
-    console.log("✅ Query Fields Info:", JSON.stringify(fields, null, 2));
     console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2));
 
     if (!rows || rows.length === 0) {
