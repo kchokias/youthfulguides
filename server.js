@@ -772,7 +772,15 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       [userId]
     );
 
-    console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2));
+    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
+    if (rows[0]) {
+      console.log(
+        "✅ Retrieved Row Structure:",
+        JSON.stringify(rows[0], null, 2)
+      );
+      console.log("✅ Type of `photo_data`:", typeof rows[0].photo_data);
+      console.log("✅ `photo_data` content:", rows[0].photo_data);
+    }
 
     if (!rows || rows.length === 0) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
