@@ -764,7 +764,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Force query all columns for debugging
+    // Fetch all columns for debugging
     const [rows] = await connection.query(
       `SELECT * FROM profile_photos WHERE user_id = ?`,
       [userId]
@@ -783,12 +783,51 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     }
 
     const result = rows[0];
+
     console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
+
     console.log("✅ Available Column Names:", Object.keys(result));
+
+    console.log("✅ Type of `photo_data`:", typeof result.photo_data);
+
+    console.log("✅ Raw `photo_data` Value:", result.photo_data);
+
+    if (!result.photo_data) {
+      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Profile photo exists but data is missing",
+      });
+    }
+
+    let photoBuffer = result.photo_data;
+
+    if (photoBuffer?.type === "Buffer" && Array.isArray(photoBuffer.data)) {
+      photoBuffer = Buffer.from(photoBuffer.data);
+    }
+
+    if (!Buffer.isBuffer(photoBuffer)) {
+      console.error("❌ Retrieved data is NOT a Buffer:", photoBuffer);
+      return res.status(500).json({
+        success: false,
+        message: "Corrupted image data",
+      });
+    }
+
+    console.log(
+      `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
+    );
+
+    const base64Image = photoBuffer.toString("base64");
+
+    let imageType = "image/png";
+    if (base64Image.startsWith("/9j/")) imageType = "image/jpeg";
+
+    const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
       success: true,
-      data: result, // Returning raw data for debugging
+      photoData: base64Response,
     });
   } catch (err) {
     console.error("❌ Error retrieving profile photo:", err);
