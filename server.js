@@ -765,9 +765,10 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
     // Fetch everything to debug
-    const [rows, fields] = await connection.query(
-      `SELECT HEX(SUBSTRING(photo_data, 1, 100)) AS hex_preview, LENGTH(photo_data) AS size 
-       FROM profile_photos WHERE user_id = ?`,
+    const [rows] = await connection.query(
+      `SELECT CONVERT(photo_data USING BINARY) AS photo_data 
+       FROM profile_photos 
+       WHERE user_id = ?`,
       [userId]
     );
 
