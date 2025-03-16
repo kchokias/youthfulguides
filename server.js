@@ -773,11 +773,17 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     const result = rows[0];
 
-    if (!result.photo_data) {
-      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
-      return res.status(500).json({
+    if (
+      !rows ||
+      rows.length === 0 ||
+      !result ||
+      !result.photo_data ||
+      result.photo_data.length === 0
+    ) {
+      console.warn(`⚠️ No valid photo data found for User ID: ${userId}`);
+      return res.status(404).json({
         success: false,
-        message: "Profile photo exists but data is missing",
+        message: "No profile photo found for this user",
         debug: {
           queryResponse: rows,
           retrievedRow: result,
