@@ -766,12 +766,13 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     // Fetch everything to debug
     const [rows, fields] = await connection.query(
-      `SELECT * FROM profile_photos WHERE user_id = ?`,
+      `SELECT HEX(SUBSTRING(photo_data, 1, 100)) AS hex_preview, LENGTH(photo_data) AS size 
+       FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
     console.log("✅ Query Fields Info:", JSON.stringify(fields, null, 2));
-    console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2)); // 🔍 Log Full Response
+    console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2));
 
     if (!rows || rows.length === 0) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
