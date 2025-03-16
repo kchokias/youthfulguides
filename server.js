@@ -754,19 +754,13 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
 
-    if (rows.length > 0) {
-      console.log(
-        "✅ Retrieved Row Structure:",
-        JSON.stringify(rows[0], null, 2)
-      );
-      console.log("✅ Available Column Names:", Object.keys(rows[0]));
-    } else {
-      console.warn("⚠️ Query returned no results for User ID:", userId);
+    if (!rows || rows.length === 0) {
+      console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
         message: "No profile photo found for this user",
         debug: {
-          queryResponse: rows, // Include the empty response for debugging
+          queryResponse: rows,
         },
       });
     }
@@ -774,16 +768,14 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const result = rows[0];
 
     if (
-      !rows ||
-      rows.length === 0 ||
       !result ||
-      !result.photo_data ||
-      result.photo_data.length === 0
+      typeof result.photo_data !== "string" ||
+      result.photo_data.trim() === ""
     ) {
-      console.warn(`⚠️ No valid photo data found for User ID: ${userId}`);
-      return res.status(404).json({
+      console.warn(`⚠️ Photo data is invalid for User ID: ${userId}`);
+      return res.status(500).json({
         success: false,
-        message: "No profile photo found for this user",
+        message: "Profile photo exists but data is missing",
         debug: {
           queryResponse: rows,
           retrievedRow: result,
@@ -797,7 +789,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     return res.json({
       success: true,
-      photoData: result.photo_data, // Already Base64, no need for conversion
+      photoData: result.photo_data, // Return Base64 directly
       debug: {
         queryResponse: rows, // Full database response
         retrievedRow: result, // Exact row structure
