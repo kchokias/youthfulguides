@@ -82,7 +82,7 @@ const pool = mariadb.createPool({
   multipleStatements: true,
   typeCast: function (field, next) {
     if (field.type === "BLOB" || field.type === "LONGBLOB") {
-      console.log(`🔍 Extracting BLOB Data from field:`, field);
+      console.log(`🔍 Extracting BLOB Data from field:`, field.name);
       return field.buffer ? field.buffer() : next();
     }
     return next();
@@ -759,12 +759,13 @@ app.post(
 app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   const userId = req.params.userId;
 
+  let connection;
   try {
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch EVERYTHING for debugging
-    const [rows, fields] = await connection.execute(
+    // Fetch photo_data
+    const [rows, fields] = await connection.query(
       `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
@@ -772,9 +773,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     console.log("✅ Query Fields Info:", JSON.stringify(fields, null, 2));
     console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2));
 
-    connection.release();
-
-    if (!rows || rows.length === 0) {
+    if (!rows || rows.length === 0 || !rows[0]?.photo_data) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -782,23 +781,14 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const result = rows[0];
-    console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
-
-    // Check if `photo_data` exists
-    if (!result || !result.photo_data) {
-      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
-      return res.status(500).json({
-        success: false,
-        message: "Profile photo exists but data is missing",
-      });
+    // Extract the Buffer from result
+    let photoBuffer = rows[0].photo_data;
+    if (photoBuffer?.type === "Buffer" && Array.isArray(photoBuffer.data)) {
+      photoBuffer = Buffer.from(photoBuffer.data);
     }
 
-    console.log("✅ Type of Retrieved Data:", typeof result.photo_data);
-
-    // Ensure `photo_data` is a Buffer
-    if (!Buffer.isBuffer(result.photo_data)) {
-      console.error("❌ Retrieved data is NOT a Buffer:", result.photo_data);
+    if (!Buffer.isBuffer(photoBuffer)) {
+      console.error("❌ Retrieved data is NOT a Buffer:", photoBuffer);
       return res.status(500).json({
         success: false,
         message: "Corrupted image data",
@@ -806,11 +796,11 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     }
 
     console.log(
-      `✅ Successfully retrieved image. Buffer size: ${result.photo_data.length} bytes`
+      `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
     );
 
     // Convert Buffer to Base64
-    const base64Image = result.photo_data.toString("base64");
+    const base64Image = photoBuffer.toString("base64");
 
     // Identify image type dynamically
     let imageType = "image/png"; // Default to PNG
@@ -830,6 +820,8 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       message: "Failed to retrieve profile photo",
       error: err.message,
     });
+  } finally {
+    if (connection) connection.release(); // ✅ Always release the connection
   }
 });
 
