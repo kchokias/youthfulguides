@@ -767,8 +767,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     const result = rows[0];
 
+    console.log("✅ Checking `photo_data`...");
+    console.log("✅ Type of `photo_data`:", typeof result.photo_data);
+    console.log(
+      "✅ Raw `photo_data` Value:",
+      result.photo_data ? result.photo_data.substring(0, 50) + "..." : "NULL"
+    );
+
     if (
       !result ||
+      !("photo_data" in result) ||
       typeof result.photo_data !== "string" ||
       result.photo_data.trim() === ""
     ) {
