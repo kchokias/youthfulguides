@@ -764,16 +764,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch photo_data
+    // Fetch everything to debug
     const [rows, fields] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT * FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
     console.log("✅ Query Fields Info:", JSON.stringify(fields, null, 2));
-    console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2));
+    console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2)); // 🔍 Log Full Response
 
-    if (!rows || rows.length === 0 || !rows[0]?.photo_data) {
+    if (!rows || rows.length === 0) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -781,8 +781,20 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    // Extract the Buffer from result
-    let photoBuffer = rows[0].photo_data;
+    const result = rows[0];
+    console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
+
+    if (!result || !result.photo_data) {
+      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Profile photo exists but data is missing",
+      });
+    }
+
+    console.log("✅ Type of Retrieved Data:", typeof result.photo_data);
+
+    let photoBuffer = result.photo_data;
     if (photoBuffer?.type === "Buffer" && Array.isArray(photoBuffer.data)) {
       photoBuffer = Buffer.from(photoBuffer.data);
     }
@@ -799,14 +811,11 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
     );
 
-    // Convert Buffer to Base64
     const base64Image = photoBuffer.toString("base64");
 
-    // Identify image type dynamically
-    let imageType = "image/png"; // Default to PNG
-    if (base64Image.startsWith("/9j/")) imageType = "image/jpeg"; // JPEG header starts with `/9j/`
+    let imageType = "image/png";
+    if (base64Image.startsWith("/9j/")) imageType = "image/jpeg";
 
-    // Construct Base64 response
     const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
@@ -821,7 +830,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       error: err.message,
     });
   } finally {
-    if (connection) connection.release(); // ✅ Always release the connection
+    if (connection) connection.release();
   }
 });
 
