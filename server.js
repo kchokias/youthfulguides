@@ -764,9 +764,10 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     // Fetch binary data properly
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT * FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
+    console.log("✅ Full Row Data:", JSON.stringify(rows, null, 2));
 
     connection.release();
 
