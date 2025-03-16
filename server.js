@@ -744,11 +744,14 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Retrieve the Base64 string directly
+    // Retrieve all columns to debug
     const [rows] = await connection.query(
-      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT * FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
+
+    connection.release();
+
     console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
 
     if (rows.length > 0) {
@@ -759,30 +762,45 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       console.log("✅ Available Column Names:", Object.keys(rows[0]));
     } else {
       console.warn("⚠️ Query returned no results for User ID:", userId);
-    }
-    connection.release();
-
-    if (!rows || rows.length === 0 || !rows[0].photo_data) {
-      console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
         message: "No profile photo found for this user",
+        debug: {
+          queryResponse: rows, // Include the empty response for debugging
+        },
       });
     }
 
-    const base64Image = rows[0].photo_data; // Already stored as Base64
+    const result = rows[0];
+
+    if (!result.photo_data) {
+      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Profile photo exists but data is missing",
+        debug: {
+          queryResponse: rows,
+          retrievedRow: result,
+        },
+      });
+    }
 
     console.log(
       `✅ Successfully retrieved Base64 image for User ID: ${userId}`
     );
 
-    res.json({
+    return res.json({
       success: true,
-      photoData: base64Image, // No need to convert to Base64 again
+      photoData: result.photo_data, // Already Base64, no need for conversion
+      debug: {
+        queryResponse: rows, // Full database response
+        retrievedRow: result, // Exact row structure
+        columnNames: Object.keys(result), // Columns in the result
+      },
     });
   } catch (err) {
     console.error("❌ Error retrieving profile photo:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to retrieve profile photo",
       error: err.message,
