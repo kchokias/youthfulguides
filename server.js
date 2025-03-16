@@ -756,7 +756,7 @@ app.post(
   }
 );
 
-app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
+pp.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   const userId = req.params.userId;
 
   let connection;
@@ -764,23 +764,16 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch all columns for debugging
+    // Force query all columns for debugging
     const [rows] = await connection.query(
       `SELECT * FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
-    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
-    if (rows[0]) {
-      console.log(
-        "✅ Retrieved Row Structure:",
-        JSON.stringify(rows[0], null, 2)
-      );
-      console.log("✅ Available Column Names:", Object.keys(rows[0]));
-    } else {
-      console.warn("⚠️ Query returned no results.");
-    }
     connection.release();
+
+    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
+
     if (!rows || rows.length === 0) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
@@ -791,48 +784,11 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     const result = rows[0];
     console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
-
-    // 🚨 New Logs to Debug `photo_data`
-    console.log("✅ Available Column Names:", Object.keys(result)); // Shows all column names
-    console.log("✅ Type of `photo_data`:", typeof result.photo_data); // Shows the actual type
-    console.log("✅ `photo_data` Raw Value:", result.photo_data); // Displays actual value
-
-    if (!result.photo_data) {
-      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
-      return res.status(500).json({
-        success: false,
-        message: "Profile photo exists but data is missing",
-      });
-    }
-
-    let photoBuffer = result.photo_data;
-
-    if (photoBuffer?.type === "Buffer" && Array.isArray(photoBuffer.data)) {
-      photoBuffer = Buffer.from(photoBuffer.data);
-    }
-
-    if (!Buffer.isBuffer(photoBuffer)) {
-      console.error("❌ Retrieved data is NOT a Buffer:", photoBuffer);
-      return res.status(500).json({
-        success: false,
-        message: "Corrupted image data",
-      });
-    }
-
-    console.log(
-      `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
-    );
-
-    const base64Image = photoBuffer.toString("base64");
-
-    let imageType = "image/png";
-    if (base64Image.startsWith("/9j/")) imageType = "image/jpeg";
-
-    const base64Response = `data:${imageType};base64,${base64Image}`;
+    console.log("✅ Available Column Names:", Object.keys(result));
 
     res.json({
       success: true,
-      photoData: base64Response,
+      data: result, // Returning raw data for debugging
     });
   } catch (err) {
     console.error("❌ Error retrieving profile photo:", err);
