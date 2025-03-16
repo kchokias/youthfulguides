@@ -586,12 +586,17 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       `Database connection established for UploadMedia for Guide ID: ${guideId}`
     );
 
-    // Prepare bulk insert query
-    const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ?`;
-    const values = mediaData.map((media) => [guideId, media]); // Convert array to MySQL format
+    // Generate placeholders for each (guide_id, media_data) pair
+    const placeholders = mediaData.map(() => "(?, ?)").join(", ");
 
-    // Execute bulk insert
-    await connection.query(insertQuery, [values]);
+    // Flatten the values into a single array for MySQL
+    const values = mediaData.flatMap((media) => [guideId, media]);
+
+    // Corrected bulk insert query with explicit placeholders
+    const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
+
+    // Execute the query
+    await connection.query(insertQuery, values);
 
     connection.release();
     console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
