@@ -697,8 +697,8 @@ app.post(
   "/api/User/UploadProfilePhoto",
   authenticateToken,
   async (req, res) => {
-    const userId = req.user.userId;
-    let { photoData } = req.body; // Expecting a Base64 string
+    const userId = req.user.userId; // Extract user ID from the token
+    const { photoData } = req.body; // Base64-encoded image
 
     if (!photoData) {
       return res
@@ -708,18 +708,31 @@ app.post(
 
     try {
       const connection = await pool.getConnection();
-      console.log(`Uploading profile photo for User ID: ${userId}`);
+      console.log(
+        `Database connection established for UploadProfilePhoto for User ID: ${userId}`
+      );
 
-      // Store Base64 directly into the database as TEXT
-      const query = `
-          INSERT INTO profile_photos (user_id, photo_data, created_at) 
-          VALUES (?, ?, CURRENT_TIMESTAMP) 
-          ON DUPLICATE KEY UPDATE photo_data = ?, created_at = CURRENT_TIMESTAMP;
-      `;
+      // Check if user already has a profile photo
+      const existingPhoto = await connection.query(
+        `SELECT id FROM profile_photos WHERE user_id = ?`,
+        [userId]
+      );
 
-      await connection.query(query, [userId, photoData, photoData]);
-
-      console.log(`✅ Profile photo saved as Base64 for User ID: ${userId}`);
+      if (existingPhoto.length > 0) {
+        // Update existing profile photo
+        await connection.query(
+          `UPDATE profile_photos SET photo_data = ?, created_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
+          [photoData, userId]
+        );
+        console.log(`Profile photo updated for User ID: ${userId}`);
+      } else {
+        // Insert new profile photo
+        await connection.query(
+          `INSERT INTO profile_photos (user_id, photo_data) VALUES (?, ?)`,
+          [userId, photoData]
+        );
+        console.log(`Profile photo uploaded for User ID: ${userId}`);
+      }
 
       connection.release();
 
@@ -727,12 +740,10 @@ app.post(
         .status(201)
         .json({ success: true, message: "Profile photo saved successfully" });
     } catch (err) {
-      console.error("❌ Error uploading profile photo:", err);
-      res.status(500).json({
-        success: false,
-        message: "Failed to upload profile photo",
-        error: err.message,
-      });
+      console.error("Error uploading profile photo:", err);
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to upload profile photo" });
     }
   }
 );
@@ -742,75 +753,33 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
   try {
     const connection = await pool.getConnection();
-    console.log(`Fetching profile photo for User ID: ${userId}`);
+    console.log(
+      `Database connection established for GetProfilePhoto for User ID: ${userId}`
+    );
 
-    // Retrieve all columns to debug
-    const [rows] = await connection.query(
-      `SELECT * FROM profile_photos WHERE user_id = ?`,
+    // Fetch the user's profile photo
+    const result = await connection.query(
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
     connection.release();
 
-    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
-
-    if (!rows || rows.length === 0) {
-      console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
-      return res.status(404).json({
-        success: false,
-        message: "No profile photo found for this user",
-        debug: {
-          queryResponse: rows,
-        },
-      });
+    if (result.length === 0) {
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "No profile photo found for this user",
+        });
     }
 
-    const result = rows[0];
-
-    console.log("✅ Checking `photo_data`...");
-    console.log("✅ Type of `photo_data`:", typeof result.photo_data);
-    console.log(
-      "✅ Raw `photo_data` Value:",
-      result.photo_data ? result.photo_data.substring(0, 50) + "..." : "NULL"
-    );
-
-    if (
-      !result ||
-      !("photo_data" in result) ||
-      typeof result.photo_data !== "string" ||
-      result.photo_data.trim() === ""
-    ) {
-      console.warn(`⚠️ Photo data is invalid for User ID: ${userId}`);
-      return res.status(500).json({
-        success: false,
-        message: "Profile photo exists but data is missing",
-        debug: {
-          queryResponse: rows,
-          retrievedRow: result,
-        },
-      });
-    }
-
-    console.log(
-      `✅ Successfully retrieved Base64 image for User ID: ${userId}`
-    );
-
-    return res.json({
-      success: true,
-      photoData: result.photo_data, // Return Base64 directly
-      debug: {
-        queryResponse: rows, // Full database response
-        retrievedRow: result, // Exact row structure
-        columnNames: Object.keys(result), // Columns in the result
-      },
-    });
+    res.json({ success: true, photoData: result[0].photo_data });
   } catch (err) {
-    console.error("❌ Error retrieving profile photo:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to retrieve profile photo",
-      error: err.message,
-    });
+    console.error("Error retrieving profile photo:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to retrieve profile photo" });
   }
 });
 
