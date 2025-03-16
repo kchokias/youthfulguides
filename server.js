@@ -572,12 +572,10 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
   const { guideId, mediaData } = req.body; // Expecting an array of mediaData
 
   if (!guideId || !Array.isArray(mediaData) || mediaData.length === 0) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Missing required fields or empty media array",
-      });
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields or empty media array",
+    });
   }
 
   try {
@@ -616,7 +614,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
   }
 });
 
-//Define Get all Media api for guide
+// Define Get All Media API for Guide
 app.get("/api/Guide/GetAllMedia/:guideId", async (req, res) => {
   const guideId = req.params.guideId;
 
@@ -640,12 +638,25 @@ app.get("/api/Guide/GetAllMedia/:guideId", async (req, res) => {
         .json({ success: false, message: "No media found for this guide" });
     }
 
-    res.json({ success: true, data: result });
+    // Convert Buffer data to Base64 format
+    const formattedMedia = result.map((media) => ({
+      id: media.id,
+      created_at: media.created_at,
+      media_data: Buffer.isBuffer(media.media_data)
+        ? `data:image/jpeg;base64,${media.media_data.toString("base64")}`
+        : media.media_data, // If already Base64, return as is
+    }));
+
+    res.json({ success: true, data: formattedMedia });
   } catch (err) {
-    console.error("Error retrieving media:", err);
+    console.error("❌ Error retrieving media:", err);
     res
       .status(500)
-      .json({ success: false, message: "Failed to retrieve media" });
+      .json({
+        success: false,
+        message: "Failed to retrieve media",
+        error: err.message,
+      });
   }
 });
 
