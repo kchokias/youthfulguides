@@ -766,7 +766,9 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     // Fetch all columns for debugging
     const [rows] = await connection.query(
-      `SELECT * FROM profile_photos WHERE user_id = ?`,
+      `SELECT CAST(photo_data AS BINARY) AS photo_data 
+       FROM profile_photos 
+       WHERE user_id = ?`,
       [userId]
     );
 
