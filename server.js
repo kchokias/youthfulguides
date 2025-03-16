@@ -749,7 +749,17 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
+    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
 
+    if (rows.length > 0) {
+      console.log(
+        "✅ Retrieved Row Structure:",
+        JSON.stringify(rows[0], null, 2)
+      );
+      console.log("✅ Available Column Names:", Object.keys(rows[0]));
+    } else {
+      console.warn("⚠️ Query returned no results for User ID:", userId);
+    }
     connection.release();
 
     if (!rows || rows.length === 0 || !rows[0].photo_data) {
