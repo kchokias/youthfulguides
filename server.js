@@ -756,7 +756,7 @@ app.post(
   }
 );
 
-pp.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
+app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   const userId = req.params.userId;
 
   let connection;
