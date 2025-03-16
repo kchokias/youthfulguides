@@ -82,7 +82,8 @@ const pool = mariadb.createPool({
   multipleStatements: true,
   typeCast: function (field, next) {
     if (field.type === "BLOB" || field.type === "LONGBLOB") {
-      return field.buffer(); // Force MariaDB to return binary data
+      console.log(`🔍 Extracting BLOB Data from field: ${field.name}`);
+      return field.buffer(); // Ensure MariaDB returns binary data
     }
     return next();
   },
@@ -764,10 +765,11 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 
     // Fetch EVERYTHING for debugging
     const [rows, fields] = await connection.query(
-      `SELECT CONVERT(photo_data USING BINARY) AS photo_data FROM profile_photos WHERE user_id = ?`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
-
+    console.log("✅ Query Fields Info:", JSON.stringify(fields, null, 2));
+    console.log("✅ Query Result Data:", JSON.stringify(rows, null, 2));
     console.log("✅ Full Raw Query Response:", JSON.stringify(rows, null, 2));
     console.log("✅ Fields Returned:", JSON.stringify(fields, null, 2));
     connection.release();
