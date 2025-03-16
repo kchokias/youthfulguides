@@ -705,7 +705,7 @@ app.post(
   authenticateToken,
   async (req, res) => {
     const userId = req.user.userId;
-    let { photoData } = req.body;
+    let { photoData } = req.body; // Expecting a Base64 string
 
     if (!photoData) {
       return res
@@ -714,31 +714,19 @@ app.post(
     }
 
     try {
-      // Remove metadata and convert Base64 to Buffer
-      const base64Data = photoData.split(",")[1]; // Extract only Base64 content
-      const imageBuffer = Buffer.from(base64Data, "base64");
-
-      if (imageBuffer.length === 0) {
-        throw new Error("Empty buffer detected");
-      }
-
-      console.log(
-        `Uploading image for User ID: ${userId}, Size: ${imageBuffer.length} bytes`
-      );
-
       const connection = await pool.getConnection();
+      console.log(`Uploading profile photo for User ID: ${userId}`);
 
-      // Store binary data into the LONGBLOB column
-      await connection.query(
-        `INSERT INTO profile_photos (user_id, photo_data, created_at) 
-           VALUES (?, ?, CURRENT_TIMESTAMP) 
-           ON DUPLICATE KEY UPDATE photo_data = VALUES(photo_data), created_at = CURRENT_TIMESTAMP;`,
-        [userId, imageBuffer]
-      );
+      // Store Base64 directly into the database as TEXT
+      const query = `
+          INSERT INTO profile_photos (user_id, photo_data, created_at) 
+          VALUES (?, ?, CURRENT_TIMESTAMP) 
+          ON DUPLICATE KEY UPDATE photo_data = ?, created_at = CURRENT_TIMESTAMP;
+      `;
 
-      console.log(
-        `✅ Profile photo successfully stored for User ID: ${userId}`
-      );
+      await connection.query(query, [userId, photoData, photoData]);
+
+      console.log(`✅ Profile photo saved as Base64 for User ID: ${userId}`);
 
       connection.release();
 
@@ -759,24 +747,19 @@ app.post(
 app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   const userId = req.params.userId;
 
-  let connection;
   try {
-    connection = await pool.getConnection();
+    const connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch all columns for debugging
+    // Retrieve the Base64 string directly
     const [rows] = await connection.query(
-      `SELECT CAST(photo_data AS BINARY) AS photo_data 
-       FROM profile_photos 
-       WHERE user_id = ?`,
+      `SELECT photo_data FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
     connection.release();
 
-    console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
-
-    if (!rows || rows.length === 0) {
+    if (!rows || rows.length === 0 || !rows[0].photo_data) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
       return res.status(404).json({
         success: false,
@@ -784,52 +767,15 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    const result = rows[0];
-
-    console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
-
-    console.log("✅ Available Column Names:", Object.keys(result));
-
-    console.log("✅ Type of `photo_data`:", typeof result.photo_data);
-
-    console.log("✅ Raw `photo_data` Value:", result.photo_data);
-
-    if (!result.photo_data) {
-      console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
-      return res.status(500).json({
-        success: false,
-        message: "Profile photo exists but data is missing",
-      });
-    }
-
-    let photoBuffer = result.photo_data;
-
-    if (photoBuffer?.type === "Buffer" && Array.isArray(photoBuffer.data)) {
-      photoBuffer = Buffer.from(photoBuffer.data);
-    }
-
-    if (!Buffer.isBuffer(photoBuffer)) {
-      console.error("❌ Retrieved data is NOT a Buffer:", photoBuffer);
-      return res.status(500).json({
-        success: false,
-        message: "Corrupted image data",
-      });
-    }
+    const base64Image = rows[0].photo_data; // Already stored as Base64
 
     console.log(
-      `✅ Successfully retrieved image. Buffer size: ${photoBuffer.length} bytes`
+      `✅ Successfully retrieved Base64 image for User ID: ${userId}`
     );
-
-    const base64Image = photoBuffer.toString("base64");
-
-    let imageType = "image/png";
-    if (base64Image.startsWith("/9j/")) imageType = "image/jpeg";
-
-    const base64Response = `data:${imageType};base64,${base64Image}`;
 
     res.json({
       success: true,
-      photoData: base64Response,
+      photoData: base64Image, // No need to convert to Base64 again
     });
   } catch (err) {
     console.error("❌ Error retrieving profile photo:", err);
@@ -838,8 +784,6 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       message: "Failed to retrieve profile photo",
       error: err.message,
     });
-  } finally {
-    if (connection) connection.release();
   }
 });
 
@@ -878,47 +822,6 @@ app.get("/api/User/DebugPhoto/:userId", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error debugging profile photo",
-      error: err.message,
-    });
-  }
-});
-
-app.get("/api/User/TestPhoto/:userId", async (req, res) => {
-  const userId = req.params.userId;
-
-  try {
-    const connection = await pool.getConnection();
-    console.log(`Fetching profile photo (TEST) for User ID: ${userId}`);
-
-    // Fetch only first 100 bytes as HEX
-    const [rows] = await connection.query(
-      `SELECT HEX(SUBSTRING(photo_data, 1, 100)) AS hex_preview, LENGTH(photo_data) AS size 
-           FROM profile_photos 
-           WHERE user_id = ?`,
-      [userId]
-    );
-
-    connection.release();
-
-    console.log("✅ Database raw response:", rows);
-
-    if (!rows || rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No profile photo found for this user",
-      });
-    }
-
-    res.json({
-      success: true,
-      size: rows[0]?.size,
-      hex_preview: rows[0]?.hex_preview,
-    });
-  } catch (err) {
-    console.error("❌ Error retrieving profile photo:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to retrieve profile photo",
       error: err.message,
     });
   }
