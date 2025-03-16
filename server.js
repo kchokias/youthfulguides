@@ -567,14 +567,17 @@ app.put("/api/User/UpdateBooking/:id", async (req, res) => {
   }
 });
 
-//Define post Media api for guide
+// Define POST Media API for Guide (Multiple Media Upload)
 app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
-  const { guideId, mediaData } = req.body;
+  const { guideId, mediaData } = req.body; // Expecting an array of mediaData
 
-  if (!guideId || !mediaData) {
+  if (!guideId || !Array.isArray(mediaData) || mediaData.length === 0) {
     return res
       .status(400)
-      .json({ success: false, message: "Missing required fields" });
+      .json({
+        success: false,
+        message: "Missing required fields or empty media array",
+      });
   }
 
   try {
@@ -583,21 +586,28 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       `Database connection established for UploadMedia for Guide ID: ${guideId}`
     );
 
-    // Insert media into the database
-    await connection.query(
-      `INSERT INTO media (guide_id, media_data) VALUES (?, ?)`,
-      [guideId, mediaData]
-    );
+    // Prepare bulk insert query
+    const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ?`;
+    const values = mediaData.map((media) => [guideId, media]); // Convert array to MySQL format
+
+    // Execute bulk insert
+    await connection.query(insertQuery, [values]);
 
     connection.release();
-    console.log(`Media uploaded successfully for Guide ID: ${guideId}`);
+    console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
 
-    res
-      .status(201)
-      .json({ success: true, message: "Media uploaded successfully" });
+    res.status(201).json({
+      success: true,
+      message: "Media uploaded successfully",
+      uploadedCount: mediaData.length, // Return how many media items were uploaded
+    });
   } catch (err) {
-    console.error("Error uploading media:", err);
-    res.status(500).json({ success: false, message: "Failed to upload media" });
+    console.error("❌ Error uploading media:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to upload media",
+      error: err.message,
+    });
   }
 });
 
@@ -766,12 +776,10 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     connection.release();
 
     if (result.length === 0) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No profile photo found for this user",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No profile photo found for this user",
+      });
     }
 
     res.json({ success: true, photoData: result[0].photo_data });
