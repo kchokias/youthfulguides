@@ -811,7 +811,9 @@ app.get("/api/User/DebugPhoto/:userId", async (req, res) => {
 
     // Fetch ALL data for user_id = 23 (without selecting only photo_data)
     const [rows] = await connection.query(
-      `SELECT * FROM profile_photos WHERE user_id = ?`,
+      `SELECT CONVERT(photo_data USING BINARY) AS photo_data 
+       FROM profile_photos 
+       WHERE user_id = ?`,
       [userId]
     );
 
