@@ -764,23 +764,15 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     connection = await pool.getConnection();
     console.log(`Fetching profile photo for User ID: ${userId}`);
 
-    // Fetch everything to debug
+    // Fetch all columns for debugging
     const [rows] = await connection.query(
-      `SELECT CONVERT(photo_data USING BINARY) AS photo_data 
-       FROM profile_photos 
-       WHERE user_id = ?`,
+      `SELECT * FROM profile_photos WHERE user_id = ?`,
       [userId]
     );
 
+    connection.release();
+
     console.log("✅ Full Query Response:", JSON.stringify(rows, null, 2));
-    if (rows[0]) {
-      console.log(
-        "✅ Retrieved Row Structure:",
-        JSON.stringify(rows[0], null, 2)
-      );
-      console.log("✅ Type of `photo_data`:", typeof rows[0].photo_data);
-      console.log("✅ `photo_data` content:", rows[0].photo_data);
-    }
 
     if (!rows || rows.length === 0) {
       console.warn(`⚠️ No profile photo found for User ID: ${userId}`);
@@ -793,7 +785,12 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
     const result = rows[0];
     console.log("✅ Retrieved Row Structure:", JSON.stringify(result, null, 2));
 
-    if (!result || !result.photo_data) {
+    // 🚨 New Logs to Debug `photo_data`
+    console.log("✅ Available Column Names:", Object.keys(result)); // Shows all column names
+    console.log("✅ Type of `photo_data`:", typeof result.photo_data); // Shows the actual type
+    console.log("✅ `photo_data` Raw Value:", result.photo_data); // Displays actual value
+
+    if (!result.photo_data) {
       console.warn(`⚠️ Photo data is undefined or NULL for User ID: ${userId}`);
       return res.status(500).json({
         success: false,
@@ -801,9 +798,8 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
       });
     }
 
-    console.log("✅ Type of Retrieved Data:", typeof result.photo_data);
-
     let photoBuffer = result.photo_data;
+
     if (photoBuffer?.type === "Buffer" && Array.isArray(photoBuffer.data)) {
       photoBuffer = Buffer.from(photoBuffer.data);
     }
