@@ -596,17 +596,14 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // ✅ Start Transaction
-    await connection.query("START TRANSACTION");
-
     // ✅ Insert media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     await connection.query(insertQuery, values);
 
-    // ✅ Commit the insert to ensure it's saved
-    await connection.query("COMMIT");
+    // ✅ Small delay to let the database commit
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // ✅ Fetch the latest uploaded media using `ORDER BY id DESC`
+    // ✅ Fetch the latest inserted media using `LAST_INSERT_ID()`
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
@@ -638,7 +635,6 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     });
   }
 });
-
 // Define Get All Media API for Guide
 app.get("/api/Guide/GetAllMedia/:guideId", async (req, res) => {
   const guideId = req.params.guideId;
