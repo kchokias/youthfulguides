@@ -618,7 +618,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       success: true,
       message: "Media uploaded successfully",
       uploadedCount: mediaData.length,
-      media: mediaResult || [], // ✅ Always return an array
+      media: [].concat(mediaResult), // ✅ Ensures media is always an array
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
