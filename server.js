@@ -582,7 +582,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
   try {
     const connection = await pool.getConnection();
     console.log(
-      `Database connection established for UploadMedia for Guide ID: ${guideId}`
+      `✅ Database connection established for UploadMedia for Guide ID: ${guideId}`
     );
 
     // Ensure mediaData is stored as Base64 strings
@@ -596,22 +596,26 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // ✅ Insert media and return inserted IDs
+    // ✅ Insert media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     const [insertResult] = await connection.query(insertQuery, values);
 
-    // ✅ Extract all inserted IDs
-    const insertedIds = [...Array(mediaData.length).keys()].map(
-      (i) => insertResult.insertId + i
-    );
-    console.log(`✅ Inserted IDs: ${insertedIds.join(", ")}`);
+    // ✅ Ensure `insertResult` is valid
+    if (!insertResult || typeof insertResult.insertId !== "number") {
+      throw new Error("Insert operation failed: No valid insertId found.");
+    }
 
-    // ✅ Fetch all newly inserted media using exact IDs
+    console.log(
+      `✅ Insert operation successful, first inserted ID: ${insertResult.insertId}`
+    );
+
+    // ✅ Fetch all newly inserted media using `LAST_INSERT_ID()`
     const [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
-       WHERE id IN (${insertedIds.map(() => "?").join(", ")}) 
-       ORDER BY id ASC`,
-      insertedIds
+       WHERE guide_id = ? 
+       ORDER BY id DESC 
+       LIMIT ?`,
+      [guideId, mediaData.length]
     );
 
     connection.release();
@@ -622,7 +626,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       success: true,
       message: "Media uploaded successfully",
       uploadedCount: mediaData.length,
-      media: mediaResult || [], // ✅ Always return an array
+      media: Array.isArray(mediaResult) ? [...mediaResult] : [], // ✅ Always return an array
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
