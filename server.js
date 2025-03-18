@@ -596,23 +596,22 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // Start transaction
-    await connection.query("START TRANSACTION");
-
-    // Insert the media
+    // ✅ Insert media and return inserted IDs
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
-    await connection.query(insertQuery, values);
+    const [insertResult] = await connection.query(insertQuery, values);
 
-    // ✅ Ensure all inserted rows are immediately available
-    await connection.query("COMMIT");
+    // ✅ Extract all inserted IDs
+    const insertedIds = [...Array(mediaData.length).keys()].map(
+      (i) => insertResult.insertId + i
+    );
+    console.log(`✅ Inserted IDs: ${insertedIds.join(", ")}`);
 
-    // ✅ Fetch all newly inserted media using `MIN(id)`
+    // ✅ Fetch all newly inserted media using exact IDs
     const [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
-       WHERE guide_id = ? 
-       AND id >= (SELECT MIN(id) FROM media WHERE guide_id = ? AND created_at >= NOW() - INTERVAL 1 MINUTE)
+       WHERE id IN (${insertedIds.map(() => "?").join(", ")}) 
        ORDER BY id ASC`,
-      [guideId, guideId]
+      insertedIds
     );
 
     connection.release();
