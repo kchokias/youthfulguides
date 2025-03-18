@@ -596,20 +596,28 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
+    // ✅ Start Transaction
+    await connection.query("START TRANSACTION");
+
     // ✅ Insert media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     await connection.query(insertQuery, values);
 
-    // ✅ Small delay to let the database commit
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // ✅ Commit the insert to ensure it's saved
+    await connection.query("COMMIT");
 
-    // ✅ Fetch the latest inserted media using `LAST_INSERT_ID()`
+    console.log(`✅ Insert operation successful for Guide ID: ${guideId}`);
+
+    // ✅ Longer delay (1000ms) to allow database commit
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // ✅ Fetch the latest inserted media using timestamp filtering
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
-       ORDER BY id DESC 
-       LIMIT ?`,
-      [guideId, mediaData.length]
+       AND created_at >= NOW() - INTERVAL 2 SECOND 
+       ORDER BY id DESC`,
+      [guideId]
     );
 
     connection.release();
@@ -635,6 +643,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     });
   }
 });
+
 // Define Get All Media API for Guide
 app.get("/api/Guide/GetAllMedia/:guideId", async (req, res) => {
   const guideId = req.params.guideId;
