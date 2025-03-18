@@ -569,7 +569,7 @@ app.put("/api/User/UpdateBooking/:id", async (req, res) => {
 
 // Define POST Media API for Guide (Multiple Media Upload)
 app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
-  const { guideId, mediaData } = req.body; // Expecting an array of mediaData
+  const { guideId, mediaData } = req.body; // Expecting an array of Base64 strings
 
   if (!guideId || !Array.isArray(mediaData) || mediaData.length === 0) {
     return res.status(400).json({
@@ -584,17 +584,26 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       `Database connection established for UploadMedia for Guide ID: ${guideId}`
     );
 
+    // Ensure mediaData is stored as Base64 strings
+    const processedMedia = mediaData.map((media) =>
+      Buffer.isBuffer(media) ? media.toString("base64") : media
+    );
+
     // Generate placeholders for each (guide_id, media_data) pair
-    const placeholders = mediaData.map(() => "(?, ?)").join(", ");
+    const placeholders = processedMedia.map(() => "(?, ?)").join(", ");
 
-    // Flatten the values into a single array for MySQL
-    const values = mediaData.flatMap((media) => [guideId, media]);
+    // Flatten values for bulk insert
+    const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // Corrected bulk insert query with explicit placeholders
+    // Insert the media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
+    const [insertResult] = await connection.query(insertQuery, values);
 
-    // Execute the query
-    await connection.query(insertQuery, values);
+    // Fetch the newly inserted media items (last `mediaData.length` entries)
+    const mediaResult = await connection.query(
+      `SELECT id, media_data, created_at FROM media WHERE guide_id = ? ORDER BY created_at DESC LIMIT ?`,
+      [guideId, mediaData.length]
+    );
 
     connection.release();
     console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
@@ -602,7 +611,8 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Media uploaded successfully",
-      uploadedCount: mediaData.length, // Return how many media items were uploaded
+      uploadedCount: mediaData.length,
+      media: mediaResult, // Return newly uploaded media
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
@@ -650,13 +660,11 @@ app.get("/api/Guide/GetAllMedia/:guideId", async (req, res) => {
     res.json({ success: true, data: formattedMedia });
   } catch (err) {
     console.error("❌ Error retrieving media:", err);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to retrieve media",
-        error: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve media",
+      error: err.message,
+    });
   }
 });
 
