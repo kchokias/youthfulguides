@@ -595,7 +595,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // Insert the media and get the last inserted ID
+    // Insert the media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     const [insertResult] = await connection.query(insertQuery, values);
 
@@ -604,7 +604,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? AND id >= LAST_INSERT_ID() - ? + 1
        ORDER BY id ASC`,
-      [guideId, mediaData.length] // Ensure we get all new media
+      [guideId, mediaData.length]
     );
 
     connection.release();
