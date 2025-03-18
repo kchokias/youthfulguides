@@ -596,35 +596,19 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // ✅ Start Transaction
-    await connection.query("START TRANSACTION");
-
     // ✅ Insert media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     await connection.query(insertQuery, values);
 
-    // ✅ Get the highest inserted `id` (newest entry)
-    const [[maxIdResult]] = await connection.query(
-      `SELECT COALESCE(MAX(id), 0) as maxId FROM media WHERE guide_id = ?`,
-      [guideId]
-    );
+    console.log(`✅ Insert operation successful for Guide ID: ${guideId}`);
 
-    const maxId = maxIdResult.maxId; // Extract maxId correctly
-
-    console.log(
-      `✅ Insert operation successful for Guide ID: ${guideId}, Latest ID: ${maxId}`
-    );
-
-    // ✅ Commit the insert to ensure it's saved
-    await connection.query("COMMIT");
-
-    // ✅ Fetch the most recent inserted media using `MAX(id) - N`
+    // ✅ Fetch the last `N` inserted media using `ORDER BY id DESC LIMIT N`
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
-       AND id > (? - ?) 
-       ORDER BY id DESC`,
-      [guideId, maxId, mediaData.length]
+       ORDER BY id DESC 
+       LIMIT ?`,
+      [guideId, mediaData.length]
     );
 
     connection.release();
