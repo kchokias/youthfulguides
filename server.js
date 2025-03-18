@@ -602,6 +602,9 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
 
     console.log(`✅ Insert operation successful for Guide ID: ${guideId}`);
 
+    // ✅ Add small delay to ensure transaction is fully committed
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     // ✅ Fetch the last `N` inserted media using `ORDER BY id DESC LIMIT N`
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
