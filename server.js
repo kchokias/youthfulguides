@@ -600,7 +600,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     await connection.query(insertQuery, values);
 
     // ✅ Fetch newly inserted media items properly
-    const [mediaResult] = await connection.query(
+    let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? ORDER BY id DESC LIMIT ?`,
       [guideId, mediaData.length]
@@ -613,7 +613,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       success: true,
       message: "Media uploaded successfully",
       uploadedCount: mediaData.length,
-      media: Array.isArray(mediaResult) ? mediaResult : [mediaResult], // ✅ Ensure it's always an array
+      media: [].concat(mediaResult), // ✅ Guaranteed array conversion
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
