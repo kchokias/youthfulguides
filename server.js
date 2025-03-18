@@ -598,34 +598,24 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
 
     // ✅ Insert media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
-    const [insertResult] = await connection.query(insertQuery, values);
+    await connection.query(insertQuery, values);
 
-    // ✅ Ensure `insertResult` is valid
-    if (!insertResult || typeof insertResult.insertId !== "number") {
-      throw new Error("Insert operation failed: No valid insertId found.");
-    }
-
-    console.log(
-      `✅ Insert operation successful, first inserted ID: ${insertResult.insertId}`
-    );
-
-    // ✅ Fetch all newly inserted media using `ORDER BY id DESC LIMIT mediaData.length`
+    // ✅ Fetch the last inserted media by timestamp
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
-       ORDER BY id DESC 
-       LIMIT ?`,
-      [guideId, mediaData.length]
+       AND created_at >= NOW() - INTERVAL 5 SECOND
+       ORDER BY id DESC`,
+      [guideId]
     );
 
-    // ✅ Force `mediaResult` into an array
-    mediaResult = Array.isArray(mediaResult)
-      ? mediaResult
-      : [].concat(mediaResult || []);
-
     connection.release();
+
+    // ✅ Ensure `mediaResult` is always an array
+    mediaResult = Array.isArray(mediaResult) ? mediaResult : [];
+
     console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
-    console.log(`🔍 Retrieved Media Items Count: ${mediaResult.length || 0}`); // Debugging log
+    console.log(`🔍 Retrieved Media Items Count: ${mediaResult.length || 0}`);
 
     return res.status(201).json({
       success: true,
