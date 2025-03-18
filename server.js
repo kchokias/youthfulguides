@@ -596,11 +596,13 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // ✅ Insert media
-    const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
-    const [insertResult] = await connection.query(insertQuery, values);
+    // ✅ Insert media and retrieve metadata
+    const [insertResult] = await connection.query(
+      `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`,
+      values
+    );
 
-    // ✅ Ensure `insertResult` is valid
+    // ✅ Ensure `insertResult` is a valid object
     if (!insertResult || typeof insertResult.insertId !== "number") {
       throw new Error("Insert operation failed: No valid insertId found.");
     }
@@ -609,7 +611,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       `✅ Insert operation successful, first inserted ID: ${insertResult.insertId}`
     );
 
-    // ✅ Fetch all newly inserted media using `LAST_INSERT_ID()`
+    // ✅ Fetch all newly inserted media
     const [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
