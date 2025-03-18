@@ -608,16 +608,13 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
 
     console.log(`✅ Insert operation successful for Guide ID: ${guideId}`);
 
-    // ✅ Longer delay (1000ms) to allow database commit
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // ✅ Fetch the latest inserted media using timestamp filtering
+    // ✅ Fetch the most recent inserted media using MAX(id)
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
-       AND created_at >= NOW() - INTERVAL 2 SECOND 
+       AND id > (SELECT MAX(id) - ? FROM media WHERE guide_id = ?)
        ORDER BY id DESC`,
-      [guideId]
+      [guideId, mediaData.length, guideId]
     );
 
     connection.release();
