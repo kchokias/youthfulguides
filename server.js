@@ -596,13 +596,11 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // ✅ Insert media and retrieve metadata
-    const [insertResult] = await connection.query(
-      `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`,
-      values
-    );
+    // ✅ Insert media
+    const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
+    const [insertResult] = await connection.query(insertQuery, values);
 
-    // ✅ Ensure `insertResult` is a valid object
+    // ✅ Ensure `insertResult` is valid
     if (!insertResult || typeof insertResult.insertId !== "number") {
       throw new Error("Insert operation failed: No valid insertId found.");
     }
@@ -611,14 +609,19 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       `✅ Insert operation successful, first inserted ID: ${insertResult.insertId}`
     );
 
-    // ✅ Fetch all newly inserted media
-    const [mediaResult] = await connection.query(
+    // ✅ Fetch all newly inserted media using `ORDER BY id DESC LIMIT mediaData.length`
+    let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
        ORDER BY id DESC 
        LIMIT ?`,
       [guideId, mediaData.length]
     );
+
+    // ✅ Force `mediaResult` into an array
+    mediaResult = Array.isArray(mediaResult)
+      ? mediaResult
+      : [].concat(mediaResult || []);
 
     connection.release();
     console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
@@ -628,7 +631,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       success: true,
       message: "Media uploaded successfully",
       uploadedCount: mediaData.length,
-      media: Array.isArray(mediaResult) ? [...mediaResult] : [], // ✅ Always return an array
+      media: mediaResult, // ✅ Always return an array
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
