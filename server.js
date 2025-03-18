@@ -596,18 +596,23 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
+    // Start transaction
+    await connection.query("START TRANSACTION");
+
     // Insert the media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     await connection.query(insertQuery, values);
 
-    // ✅ Fetch all newly inserted media using `MAX(id)`
+    // ✅ Ensure all inserted rows are immediately available
+    await connection.query("COMMIT");
+
+    // ✅ Fetch all newly inserted media using `MIN(id)`
     const [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
-       WHERE guide_id = ? AND id >= (
-         SELECT MAX(id) FROM media WHERE guide_id = ? LIMIT 1
-       ) - ? + 1
+       WHERE guide_id = ? 
+       AND id >= (SELECT MIN(id) FROM media WHERE guide_id = ? AND created_at >= NOW() - INTERVAL 1 MINUTE)
        ORDER BY id ASC`,
-      [guideId, guideId, mediaData.length]
+      [guideId, guideId]
     );
 
     connection.release();
@@ -618,7 +623,7 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
       success: true,
       message: "Media uploaded successfully",
       uploadedCount: mediaData.length,
-      media: [].concat(mediaResult), // ✅ Ensures media is always an array
+      media: mediaResult || [], // ✅ Always return an array
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
