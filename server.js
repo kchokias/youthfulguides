@@ -603,21 +603,29 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     const insertResult = await connection.query(insertQuery, values);
 
-    const firstInsertedId = insertResult.insertId;
-    console.log(
-      `✅ Insert operation successful. First Inserted ID: ${firstInsertedId}`
-    );
-
     // ✅ Commit to ensure changes are visible
     await connection.query("COMMIT");
+
+    console.log(
+      `✅ Insert operation successful. Inserted IDs range from ${
+        insertResult.insertId
+      } to ${insertResult.insertId + mediaData.length - 1}`
+    );
+
+    // ✅ Enforce a slight delay for the database to reflect inserted changes
+    await connection.query("SELECT SLEEP(0.5)");
 
     // ✅ Fetch the exact inserted rows based on ID range
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
-       AND id >= ? 
+       AND id BETWEEN ? AND ? 
        ORDER BY id ASC`,
-      [guideId, firstInsertedId]
+      [
+        guideId,
+        insertResult.insertId,
+        insertResult.insertId + mediaData.length - 1,
+      ]
     );
 
     connection.release();
