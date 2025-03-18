@@ -603,18 +603,26 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     await connection.query(insertQuery, values);
 
+    // ✅ Get the highest inserted `id` (newest entry)
+    const [[{ maxId }]] = await connection.query(
+      `SELECT MAX(id) as maxId FROM media WHERE guide_id = ?`,
+      [guideId]
+    );
+
     // ✅ Commit the insert to ensure it's saved
     await connection.query("COMMIT");
 
-    console.log(`✅ Insert operation successful for Guide ID: ${guideId}`);
+    console.log(
+      `✅ Insert operation successful for Guide ID: ${guideId}, Latest ID: ${maxId}`
+    );
 
-    // ✅ Fetch the most recent inserted media using MAX(id)
+    // ✅ Fetch the most recent inserted media using `MAX(id) - N`
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
-       AND id > (SELECT MAX(id) - ? FROM media WHERE guide_id = ?)
+       AND id > (? - ?) 
        ORDER BY id DESC`,
-      [guideId, mediaData.length, guideId]
+      [guideId, maxId, mediaData.length]
     );
 
     connection.release();
