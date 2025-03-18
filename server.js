@@ -568,6 +568,7 @@ app.put("/api/User/UpdateBooking/:id", async (req, res) => {
 });
 
 // Define POST Media API for Guide (Multiple Media Upload)
+// Define POST Media API for Guide (Multiple Media Upload)
 app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
   const { guideId, mediaData } = req.body;
 
@@ -597,25 +598,24 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
 
     // Insert the media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
-    const [insertResult] = await connection.query(insertQuery, values);
+    await connection.query(insertQuery, values);
 
-    // ✅ Fetch all newly inserted media using `id`
-    const [mediaResult] = await connection.query(
+    // ✅ Fetch all newly inserted media using `ORDER BY id DESC`
+    let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
-       WHERE guide_id = ? AND id >= LAST_INSERT_ID() - ? + 1
-       ORDER BY id ASC`,
+       WHERE guide_id = ? ORDER BY id DESC LIMIT ?`,
       [guideId, mediaData.length]
     );
 
     connection.release();
     console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
-    console.log(`🔍 Retrieved Media Items Count: ${mediaResult.length}`); // Debugging log
+    console.log(`🔍 Retrieved Media Items Count: ${mediaResult.length || 0}`); // Debugging log
 
     return res.status(201).json({
       success: true,
       message: "Media uploaded successfully",
       uploadedCount: mediaData.length,
-      media: Array.isArray(mediaResult) ? mediaResult : [mediaResult], // ✅ Always return an array
+      media: Array.isArray(mediaResult) ? [...mediaResult] : [], // ✅ Always an array
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
