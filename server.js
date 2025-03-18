@@ -569,6 +569,7 @@ app.put("/api/User/UpdateBooking/:id", async (req, res) => {
 
 // Define POST Media API for Guide (Multiple Media Upload)
 // Define POST Media API for Guide (Multiple Media Upload)
+// Define POST Media API for Guide (Multiple Media Upload)
 app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
   const { guideId, mediaData } = req.body;
 
@@ -596,25 +597,19 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
     // Flatten values for bulk insert
     const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // ✅ Start Transaction to ensure atomic insert
-    await connection.query("START TRANSACTION");
-
     // ✅ Insert media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
     await connection.query(insertQuery, values);
 
     console.log(`✅ Insert operation successful for Guide ID: ${guideId}`);
 
-    // ✅ Manually commit transaction to ensure instant visibility
-    await connection.query("COMMIT");
-
-    // ✅ Fetch the last `N` inserted media using `ORDER BY id DESC LIMIT N`
+    // ✅ Fetch inserted media using `created_at` timestamps
     let [mediaResult] = await connection.query(
       `SELECT id, media_data, created_at FROM media 
        WHERE guide_id = ? 
-       ORDER BY id DESC 
-       LIMIT ?`,
-      [guideId, mediaData.length]
+       AND created_at >= (SELECT MAX(created_at) FROM media WHERE guide_id = ?)
+       ORDER BY created_at DESC`,
+      [guideId, guideId]
     );
 
     connection.release();
