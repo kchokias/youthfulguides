@@ -572,43 +572,63 @@ app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
   const { guideId, mediaData } = req.body; // Expecting an array of mediaData
 
   if (!guideId || !Array.isArray(mediaData) || mediaData.length === 0) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Missing required fields or empty media array",
-      });
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields or empty media array",
+    });
   }
 
   try {
     const connection = await pool.getConnection();
     console.log(
-      `Database connection established for UploadMedia for Guide ID: ${guideId}`
+      `✅ Database connection established for UploadMedia for Guide ID: ${guideId}`
     );
 
+    // 🔍 Ensure each entry is a valid Base64 string and NOT an object
+    const processedMedia = mediaData
+      .map((media, index) => {
+        if (typeof media !== "string" || !media.startsWith("data:image/")) {
+          console.warn(`⚠️ Invalid media format at index ${index}:`, media);
+          return null; // Filter out invalid entries
+        }
+        return media;
+      })
+      .filter(Boolean); // Remove null entries
+
+    if (processedMedia.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid images provided",
+      });
+    }
+
     // Generate placeholders for each (guide_id, media_data) pair
-    const placeholders = mediaData.map(() => "(?, ?)").join(", ");
+    const placeholders = processedMedia.map(() => "(?, ?)").join(", ");
 
-    // Flatten the values into a single array for MySQL
-    const values = mediaData.flatMap((media) => [guideId, media]);
+    // Flatten values for bulk insert
+    const values = processedMedia.flatMap((media) => [guideId, media]);
 
-    // Corrected bulk insert query with explicit placeholders
+    // ✅ Start transaction
+    await connection.query("START TRANSACTION");
+
+    // ✅ Insert media
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
-
-    // Execute the query
     await connection.query(insertQuery, values);
+
+    // ✅ Commit transaction
+    await connection.query("COMMIT");
 
     connection.release();
     console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Media uploaded successfully",
-      uploadedCount: mediaData.length, // Return how many media items were uploaded
+      uploadedCount: processedMedia.length,
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to upload media",
       error: err.message,
