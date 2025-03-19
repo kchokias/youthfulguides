@@ -568,83 +568,47 @@ app.put("/api/User/UpdateBooking/:id", async (req, res) => {
 });
 
 // Define POST Media API for Guide (Multiple Media Upload)
-// Define POST Media API for Guide (Multiple Media Upload)
 app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
-  const { guideId, mediaData } = req.body;
+  const { guideId, mediaData } = req.body; // Expecting an array of mediaData
 
   if (!guideId || !Array.isArray(mediaData) || mediaData.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing required fields or empty media array",
-    });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Missing required fields or empty media array",
+      });
   }
 
   try {
     const connection = await pool.getConnection();
     console.log(
-      `✅ Database connection established for UploadMedia for Guide ID: ${guideId}`
-    );
-
-    // Ensure mediaData is stored as Base64 strings
-    const processedMedia = mediaData.map((media) =>
-      Buffer.isBuffer(media) ? media.toString("base64") : media
+      `Database connection established for UploadMedia for Guide ID: ${guideId}`
     );
 
     // Generate placeholders for each (guide_id, media_data) pair
-    const placeholders = processedMedia.map(() => "(?, ?)").join(", ");
+    const placeholders = mediaData.map(() => "(?, ?)").join(", ");
 
-    // Flatten values for bulk insert
-    const values = processedMedia.flatMap((media) => [guideId, media]);
+    // Flatten the values into a single array for MySQL
+    const values = mediaData.flatMap((media) => [guideId, media]);
 
-    // ✅ Start transaction
-    await connection.query("START TRANSACTION");
-
-    // ✅ Insert media and get first inserted ID
+    // Corrected bulk insert query with explicit placeholders
     const insertQuery = `INSERT INTO media (guide_id, media_data) VALUES ${placeholders}`;
-    const insertResult = await connection.query(insertQuery, values);
 
-    // ✅ Commit to ensure changes are visible
-    await connection.query("COMMIT");
-
-    console.log(
-      `✅ Insert operation successful. Inserted IDs range from ${
-        insertResult.insertId
-      } to ${insertResult.insertId + mediaData.length - 1}`
-    );
-
-    // ✅ Enforce a slight delay for the database to reflect inserted changes
-    await connection.query("SELECT SLEEP(0.5)");
-
-    // ✅ Fetch the exact inserted rows based on ID range
-    let [mediaResult] = await connection.query(
-      `SELECT id, media_data, created_at FROM media 
-       WHERE guide_id = ? 
-       AND id BETWEEN ? AND ? 
-       ORDER BY id ASC`,
-      [
-        guideId,
-        insertResult.insertId,
-        insertResult.insertId + mediaData.length - 1,
-      ]
-    );
+    // Execute the query
+    await connection.query(insertQuery, values);
 
     connection.release();
-
-    // ✅ Ensure `mediaResult` is always an array
-    mediaResult = Array.isArray(mediaResult) ? mediaResult : [];
-
     console.log(`✅ Media uploaded successfully for Guide ID: ${guideId}`);
-    console.log(`🔍 Retrieved Media Items Count: ${mediaResult.length || 0}`);
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Media uploaded successfully",
-      uploadedCount: mediaData.length,
-      media: mediaResult, // ✅ Always return an array
+      uploadedCount: mediaData.length, // Return how many media items were uploaded
     });
   } catch (err) {
     console.error("❌ Error uploading media:", err);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Failed to upload media",
       error: err.message,
