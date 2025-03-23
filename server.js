@@ -385,6 +385,35 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
   }
 });
 
+app.get("/api/test-insert", async (req, res) => {
+  const connection = await pool.getConnection();
+  const guideId = 9999; // any test user
+  const base = new Date("2025-01-01");
+  const values = [];
+
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    const formatted = d.toISOString().split("T")[0];
+    values.push([guideId, formatted, "unavailable"]);
+  }
+
+  console.log("👀 Values going into DB:", values);
+
+  try {
+    await connection.query(
+      "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
+      [values]
+    );
+    res.send("✅ Insert test successful");
+  } catch (err) {
+    console.error("❌ Insert test failed:", err);
+    res.status(500).send("Failed: " + err.message);
+  } finally {
+    connection.release();
+  }
+});
+
 // Define the /api/User/UpdateUser route
 app.put("/api/User/UpdateUser/:id", async (req, res) => {
   const userId = req.params.id;
