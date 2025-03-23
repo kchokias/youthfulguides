@@ -499,7 +499,6 @@ app.delete("/api/User/DeleteUserById/:id", async (req, res) => {
 //
 //
 //
-
 app.post("/api/Availability/Update", async (req, res) => {
   const { guide_id, start_date, end_date, status } = req.body;
 
@@ -525,41 +524,30 @@ app.post("/api/Availability/Update", async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
+    // 🛡️ Step 1: Check for booked dates
     const bookedRows = await connection.query(
       `SELECT date FROM guide_availability
        WHERE guide_id = ? AND status = 'booked'
        AND date BETWEEN ? AND ?`,
       [guide_id, start.format("YYYY-MM-DD"), end.format("YYYY-MM-DD")]
     );
-  
+
     if (bookedRows.length > 0) {
-      const bookedDates = bookedRows.map(row =>
+      const bookedDates = bookedRows.map((row) =>
         moment(row.date).format("DD.MM.YYYY")
       );
-  
+
       return res.status(409).json({
         success: false,
         message: "Some dates are already booked and cannot be updated.",
-        bookedDates
+        bookedDates,
       });
     }
-  
-    // continue with update logic here...
-  
-  } catch (err) {
-    console.error("❌ Error checking for booked dates:", err);
-    res.status(500).json({
-      success: false,
-      message: "Server error while checking bookings",
-      error: err.message || "Unknown error"
-    });
-  } finally {
-    connection.release();
-  }
 
-    // ✅ Step 2: Prepare availability updates
+    // ✅ Step 2: Prepare values to update
     const values = [];
     let current = moment(start);
+
     while (current.isSameOrBefore(end)) {
       values.push([guide_id, current.format("YYYY-MM-DD"), status]);
       current.add(1, "day");
@@ -576,7 +564,6 @@ app.post("/api/Availability/Update", async (req, res) => {
 
     await connection.query(sql, flatValues);
 
-    connection.release();
     res.status(200).json({
       success: true,
       message: "Availability updated successfully",
@@ -589,6 +576,8 @@ app.post("/api/Availability/Update", async (req, res) => {
       message: "Server error",
       error: err.message || "Unknown error",
     });
+  } finally {
+    connection.release();
   }
 });
 
