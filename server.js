@@ -512,13 +512,14 @@ app.post("/api/Availability/Update", async (req, res) => {
     return res.status(400).json({ success: false, message: "Invalid status" });
   }
 
-  const start = moment(start_date, "YYYY-MM-DD");
-  const end = moment(end_date, "YYYY-MM-DD");
+  const start = moment(start_date, "DD.MM.YYYY", true);
+  const end = moment(end_date, "DD.MM.YYYY", true);
 
   if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid date range" });
+    return res.status(400).json({
+      success: false,
+      message: "Invalid date range (use format DD.MM.YYYY)",
+    });
   }
 
   const connection = await pool.getConnection();
@@ -701,12 +702,10 @@ app.put("/api/User/UpdateBooking/:id", async (req, res) => {
   if (date) {
     const momentDate = moment(date, "DD.MM.YYYY", true); // strict mode
     if (!momentDate.isValid()) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid date format (use DD.MM.YYYY)",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format (use DD.MM.YYYY)",
+      });
     }
     formattedDate = momentDate.format("YYYY-MM-DD");
   }
@@ -746,6 +745,10 @@ app.put("/api/User/UpdateBooking/:id", async (req, res) => {
 });
 
 // Define POST Media API for Guide (Multiple Media Upload)
+//
+//
+//
+//
 app.post("/api/Guide/UploadMedia", authenticateToken, async (req, res) => {
   const { guideId, mediaData } = req.body; // Expecting an array of mediaData
 
