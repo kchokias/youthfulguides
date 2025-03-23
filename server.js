@@ -297,8 +297,6 @@ app.get(
   }
 );
 
-const moment = require("moment");
-
 app.post("/api/User/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
