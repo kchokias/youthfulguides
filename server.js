@@ -301,7 +301,6 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
 
-  // Validate required fields
   if (!name || !surname || !username || !email || !password || !role) {
     return res.status(400).json({
       success: false,
@@ -313,13 +312,13 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
   try {
     console.log("🟢 DB connected for CreateNewUser");
 
-    // Hash password
+    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insert user (use null fallback for optional fields)
+    // Create the new user
     const result = await connection.query(
-      `INSERT INTO users (name, surname, username, email, password, role, region, country) 
+      `INSERT INTO users (name, surname, username, email, password, role, region, country)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
@@ -336,27 +335,31 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     const newUserId = result.insertId;
     console.log(`✅ User created with ID: ${newUserId}, role: ${role}`);
 
-    // If guide, insert availability for 2025
+    // Insert 2025 availability if guide
     if (role.toLowerCase() === "guide") {
-      console.log("📅 Inserting 2025 availability...");
+      console.log("📅 Preparing 2025 availability...");
 
       const values = [];
       const baseDate = new Date("2025-01-01");
 
       for (let i = 0; i < 365; i++) {
-        const d = new Date(baseDate); // always fresh copy
-        d.setDate(baseDate.getDate() + i);
-        const formattedDate = d.toISOString().split("T")[0]; // 'YYYY-MM-DD'
-        values.push([newUserId, formattedDate, "unavailable"]); // ✅ array of arrays
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + i);
+        const formatted = d.toISOString().split("T")[0];
+        values.push([newUserId, formatted, "unavailable"]);
       }
 
-      console.log("Sample value:", values[0]);
-      console.log("Total values:", values.length);
+      const placeholders = values.map(() => "(?, ?, ?)").join(", ");
+      const flatValues = values.flat();
 
-      const sql =
-        "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?";
-      await connection.query(sql, [values]); // ✅ wrapped correctly
-      console.log("✅ 2025 availability inserted.");
+      const availabilitySql = `
+        INSERT IGNORE INTO guide_availability (guide_id, date, status)
+        VALUES ${placeholders}
+      `;
+
+      console.log("🚀 Executing availability insert...");
+      await connection.query(availabilitySql, flatValues);
+      console.log("✅ 2025 availability inserted for guide.");
     }
 
     res.status(201).json({
