@@ -301,6 +301,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
 
+  // Basic validation
   if (!name || !surname || !username || !email || !password || !role) {
     return res
       .status(400)
@@ -311,10 +312,11 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
   try {
     console.log("🟢 DB connected for CreateNewUser");
 
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insert new user
+    // Insert user
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -324,7 +326,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     const newUserId = result.insertId;
     console.log(`✅ User created with ID: ${newUserId}, role: ${role}`);
 
-    // If role is guide, insert availability for 2025
+    // If guide, insert 2025 availability
     if (role.toLowerCase() === "guide") {
       console.log("📅 Inserting 2025 availability...");
 
@@ -333,23 +335,19 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
 
       for (let i = 0; i < 365; i++) {
         const d = new Date(startDate);
-        d.setDate(d.getDate() + i);
+        d.setDate(startDate.getDate() + i);
         const formatted = d.toISOString().split("T")[0]; // YYYY-MM-DD
         values.push([newUserId, formatted, "unavailable"]);
       }
 
-      try {
-        console.log("Insert values preview:", values.slice(0, 5));
-        const sql =
-          "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?";
-        console.log("Executing SQL:", sql);
-        await connection.query(sql, [values]);
-        console.log("✅ 2025 availability inserted for guide.");
-      } catch (availabilityErr) {
-        console.error("❌ Error inserting guide availability (raw object):");
-        console.log(availabilityErr); // fallback
-        console.dir(availabilityErr, { depth: null }); // guaranteed full dump
-      }
+      console.log("Sample row format:", JSON.stringify(values[0]));
+      console.log("Row count:", values.length);
+
+      const sql =
+        "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?";
+      await connection.query(sql, [values]);
+
+      console.log("✅ 2025 availability inserted for guide.");
     }
 
     res.status(201).json({
@@ -358,8 +356,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       userId: newUserId,
     });
   } catch (err) {
-    console.error("❌ Error creating user:", err.message, err.stack);
-
+    console.error("❌ Error creating user:", err);
     if (err.code === "ER_DUP_ENTRY") {
       return res
         .status(409)
