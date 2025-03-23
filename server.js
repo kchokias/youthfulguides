@@ -586,8 +586,10 @@ app.get("/api/Availability/Guide/:guide_id", async (req, res) => {
     const bookedDates = [];
 
     rows.forEach((row) => {
-      if (row.status === "available") availableDates.push(row.date);
-      else if (row.status === "booked") bookedDates.push(row.date);
+      if (row.status === "available")
+        availableDates.push(moment(row.date).format("DD.MM.YYYY"));
+      else if (row.status === "booked")
+        bookedDates.push(moment(row.date).format("DD.MM.YYYY"));
     });
 
     res.status(200).json({
