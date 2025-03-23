@@ -297,15 +297,18 @@ app.get(
   }
 );
 
+const moment = require("moment");
+
 app.post("/api/User/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
 
-  // Basic validation
+  // Validate required fields
   if (!name || !surname || !username || !email || !password || !role) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing required fields" });
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields",
+    });
   }
 
   const connection = await pool.getConnection();
@@ -316,17 +319,26 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insert user
+    // Insert user (use null fallback for optional fields)
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, surname, username, email, hashedPassword, role, region, country]
+      [
+        name,
+        surname,
+        username,
+        email,
+        hashedPassword,
+        role,
+        region || null,
+        country || null,
+      ]
     );
 
     const newUserId = result.insertId;
     console.log(`✅ User created with ID: ${newUserId}, role: ${role}`);
 
-    // If guide, insert 2025 availability
+    // If guide, insert availability for 2025
     if (role.toLowerCase() === "guide") {
       console.log("📅 Inserting 2025 availability...");
 
@@ -334,9 +346,9 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       const base = new Date("2025-01-01");
 
       for (let i = 0; i < 365; i++) {
-        const d = new Date(base.getTime()); // clone base date properly
+        const d = new Date(base.getTime());
         d.setDate(d.getDate() + i);
-        const formatted = d.toISOString().split("T")[0]; // 'YYYY-MM-DD'
+        const formatted = d.toISOString().split("T")[0]; // YYYY-MM-DD
         values.push([newUserId, formatted, "unavailable"]);
       }
 
@@ -356,14 +368,21 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       userId: newUserId,
     });
   } catch (err) {
-    console.error("❌ Error creating user:", err);
+    console.error("❌ Error creating user:");
+    console.dir(err, { depth: null });
+
     if (err.code === "ER_DUP_ENTRY") {
-      return res
-        .status(409)
-        .json({ success: false, message: "Email already exists" });
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists",
+      });
     }
 
-    res.status(500).json({ success: false, message: "Failed to create user" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to create user",
+      error: err.message || "Unknown error",
+    });
   } finally {
     connection.release();
   }
