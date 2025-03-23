@@ -341,23 +341,22 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       console.log("📅 Inserting 2025 availability...");
 
       const values = [];
-      const base = new Date("2025-01-01");
+      const baseDate = new Date("2025-01-01");
 
       for (let i = 0; i < 365; i++) {
-        const d = new Date(base.getTime()); // clone base date
-        d.setDate(d.getDate() + i);
-        const formatted = d.toISOString().split("T")[0]; // YYYY-MM-DD
-        values.push([newUserId, formatted, "unavailable"]);
+        const d = new Date(baseDate); // always fresh copy
+        d.setDate(baseDate.getDate() + i);
+        const formattedDate = d.toISOString().split("T")[0]; // 'YYYY-MM-DD'
+        values.push([newUserId, formattedDate, "unavailable"]); // ✅ array of arrays
       }
 
-      console.log("Sample row format:", JSON.stringify(values[0]));
-      console.log("Row count:", values.length);
+      console.log("Sample value:", values[0]);
+      console.log("Total values:", values.length);
 
       const sql =
         "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?";
-      await connection.query(sql, [values]); // ✅ this is the fix
-
-      console.log("✅ 2025 availability inserted for guide.");
+      await connection.query(sql, [values]); // ✅ wrapped correctly
+      console.log("✅ 2025 availability inserted.");
     }
 
     res.status(201).json({
