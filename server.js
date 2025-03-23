@@ -297,8 +297,6 @@ app.get(
   }
 );
 
-const moment = require("moment");
-
 app.post("/api/User/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
@@ -311,7 +309,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
 
   const connection = await pool.getConnection();
   try {
-    console.log("🟢 Database connection established for CreateNewUser");
+    console.log("Database connection established for CreateNewUser");
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -323,7 +321,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     );
 
     const newUserId = result.insertId;
-    console.log(`✅ New user created with ID: ${newUserId}, role: ${role}`);
+    console.log(`New user created with ID: ${newUserId}, role: ${role}`);
 
     // If role is guide, insert 2025 availability
     if (role.toLowerCase() === "guide") {
@@ -347,12 +345,9 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
           "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
           [availabilityRows]
         );
-        console.log("✅ 2025 availability inserted.");
+        console.log("2025 availability inserted.");
       } catch (availabilityErr) {
-        console.error(
-          "❌ Error inserting guide availability:",
-          availabilityErr
-        );
+        console.error("Error inserting guide availability:", availabilityErr);
       }
     }
 
@@ -362,7 +357,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       userId: newUserId,
     });
   } catch (err) {
-    console.error("❌ Error creating new user:", err.message, err.stack);
+    console.error("Error creating new user:", err.message, err.stack);
 
     if (err.code === "ER_DUP_ENTRY") {
       return res
