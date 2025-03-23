@@ -297,6 +297,8 @@ app.get(
   }
 );
 
+const moment = require("moment");
+
 app.post("/api/User/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
@@ -309,12 +311,11 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
 
   const connection = await pool.getConnection();
   try {
-    console.log("Database connection established for CreateNewUser");
+    console.log("🟢 Database connection established for CreateNewUser");
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insert new user
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -322,10 +323,12 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     );
 
     const newUserId = result.insertId;
-    console.log(`New user created with ID: ${newUserId}`);
+    console.log(`✅ New user created with ID: ${newUserId}, role: ${role}`);
 
-    // If role is guide, insert 2025 dates as unavailable
-    if (role === "guide") {
+    // If role is guide, insert 2025 availability
+    if (role.toLowerCase() === "guide") {
+      console.log("📅 Creating 2025 availability for guide...");
+
       const startDate = moment("2025-01-01");
       const endDate = moment("2025-12-31");
       const availabilityRows = [];
@@ -339,12 +342,18 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
         startDate.add(1, "day");
       }
 
-      await connection.query(
-        "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
-        [availabilityRows]
-      );
-
-      console.log("2025 availability created for new guide.");
+      try {
+        await connection.query(
+          "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
+          [availabilityRows]
+        );
+        console.log("✅ 2025 availability inserted.");
+      } catch (availabilityErr) {
+        console.error(
+          "❌ Error inserting guide availability:",
+          availabilityErr
+        );
+      }
     }
 
     res.status(201).json({
@@ -353,7 +362,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       userId: newUserId,
     });
   } catch (err) {
-    console.error("Error creating new user:", err);
+    console.error("❌ Error creating new user:", err.message, err.stack);
 
     if (err.code === "ER_DUP_ENTRY") {
       return res
