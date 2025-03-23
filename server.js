@@ -331,10 +331,12 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       console.log("📅 Inserting 2025 availability...");
 
       const values = [];
+      const base = new Date("2025-01-01");
+
       for (let i = 0; i < 365; i++) {
-        const d = new Date("2025-01-01");
+        const d = new Date(base.getTime()); // clone base date properly
         d.setDate(d.getDate() + i);
-        const formatted = d.toISOString().split("T")[0];
+        const formatted = d.toISOString().split("T")[0]; // 'YYYY-MM-DD'
         values.push([newUserId, formatted, "unavailable"]);
       }
 
@@ -344,6 +346,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       const sql =
         "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?";
       await connection.query(sql, [values]);
+
       console.log("✅ 2025 availability inserted for guide.");
     }
 
