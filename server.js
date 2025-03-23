@@ -339,15 +339,16 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       }
 
       try {
-        await connection.query(
-          "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
-          [values]
-        );
+        console.log("Insert values preview:", values.slice(0, 5));
+        const sql =
+          "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?";
+        console.log("Executing SQL:", sql);
+        await connection.query(sql, [values]);
         console.log("✅ 2025 availability inserted for guide.");
       } catch (availabilityErr) {
-        console.error("❌ Error inserting guide availability:");
-        console.dir(availabilityErr, { depth: null });
-        console.log("Insert values preview:", values.slice(0, 5)); // first 5 rows
+        console.error("❌ Error inserting guide availability (raw object):");
+        console.log(availabilityErr); // fallback
+        console.dir(availabilityErr, { depth: null }); // guaranteed full dump
       }
     }
 
