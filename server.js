@@ -345,10 +345,9 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
         );
         console.log("✅ 2025 availability inserted for guide.");
       } catch (availabilityErr) {
-        console.error(
-          "❌ Error inserting guide availability:",
-          JSON.stringify(availabilityErr)
-        );
+        console.error("❌ Error inserting guide availability:");
+        console.dir(availabilityErr, { depth: null });
+        console.log("Insert values preview:", values.slice(0, 5)); // first 5 rows
       }
     }
 
