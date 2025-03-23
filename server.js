@@ -338,12 +338,19 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
         values.push([newUserId, formatted, "unavailable"]);
       }
 
-      await connection.query(
-        "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
-        [values]
-      );
-
-      console.log("✅ 2025 availability inserted for guide.");
+      try {
+        await connection.query(
+          "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
+          [values]
+        );
+        console.log("✅ 2025 availability inserted for guide.");
+      } catch (availabilityErr) {
+        console.error(
+          "❌ Error inserting guide availability:",
+          availabilityErr.message,
+          availabilityErr.stack
+        );
+      }
     }
 
     res.status(201).json({
