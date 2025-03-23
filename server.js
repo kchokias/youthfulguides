@@ -503,7 +503,6 @@ app.delete("/api/User/DeleteUserById/:id", async (req, res) => {
 app.post("/api/Availability/Update", async (req, res) => {
   const { guide_id, start_date, end_date, status } = req.body;
 
-  // Validate input
   if (!guide_id || !start_date || !end_date || !status) {
     return res.status(400).json({ success: false, message: "Missing fields" });
   }
@@ -513,42 +512,50 @@ app.post("/api/Availability/Update", async (req, res) => {
     return res.status(400).json({ success: false, message: "Invalid status" });
   }
 
+  const start = moment(start_date, "YYYY-MM-DD");
+  const end = moment(end_date, "YYYY-MM-DD");
+
+  if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid date range" });
+  }
+
+  const connection = await pool.getConnection();
   try {
-    const connection = await pool.getConnection();
-
-    const start = moment(start_date);
-    const end = moment(end_date);
-    if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid date range" });
-    }
-
     const values = [];
-    while (start.isSameOrBefore(end)) {
-      values.push([guide_id, start.format("YYYY-MM-DD"), status]);
-      start.add(1, "day");
+    let current = moment(start);
+
+    while (current.isSameOrBefore(end)) {
+      values.push([guide_id, current.format("YYYY-MM-DD"), status]);
+      current.add(1, "day");
     }
 
-    // Batch insert with ON DUPLICATE KEY UPDATE
-    await connection.query(
-      `
-      INSERT INTO guide_availability (guide_id, date, status)
-      VALUES ?
-      ON DUPLICATE KEY UPDATE status = VALUES(status)
-      `,
-      [values]
-    );
+    const placeholders = values.map(() => "(?, ?, ?)").join(", ");
+    const flatValues = values.flat();
 
-    connection.release();
+    const sql = `
+      INSERT INTO guide_availability (guide_id, date, status)
+      VALUES ${placeholders}
+      ON DUPLICATE KEY UPDATE status = VALUES(status)
+    `;
+
+    await connection.query(sql, flatValues);
+
     res.status(200).json({
       success: true,
       message: "Availability updated successfully",
       daysUpdated: values.length,
     });
   } catch (err) {
-    console.error("Error updating availability:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("❌ Error updating availability:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message || "Unknown error",
+    });
+  } finally {
+    connection.release();
   }
 });
 
