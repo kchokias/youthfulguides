@@ -347,8 +347,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       } catch (availabilityErr) {
         console.error(
           "❌ Error inserting guide availability:",
-          availabilityErr.message,
-          availabilityErr.stack
+          JSON.stringify(availabilityErr)
         );
       }
     }
