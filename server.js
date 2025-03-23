@@ -572,7 +572,7 @@ app.get("/api/Availability/Guide/:guide_id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    const result = await connection.query(
+    const rows = await connection.query(
       `SELECT date, status
        FROM guide_availability
        WHERE guide_id = ? AND status IN ('available', 'booked')
@@ -581,8 +581,6 @@ app.get("/api/Availability/Guide/:guide_id", async (req, res) => {
     );
 
     connection.release();
-
-    const rows = result[0] || result; // 🔧 safe for mysql2 / mariadb
 
     const availableDates = [];
     const bookedDates = [];
