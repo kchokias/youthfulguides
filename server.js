@@ -309,11 +309,12 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
 
   const connection = await pool.getConnection();
   try {
-    console.log("Database connection established for CreateNewUser");
+    console.log("🟢 DB connected for CreateNewUser");
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Insert new user
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -321,34 +322,28 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     );
 
     const newUserId = result.insertId;
-    console.log(`New user created with ID: ${newUserId}, role: ${role}`);
+    console.log(`✅ User created with ID: ${newUserId}, role: ${role}`);
 
-    // If role is guide, insert 2025 availability
+    // If role is guide, insert availability for 2025
     if (role.toLowerCase() === "guide") {
-      console.log("📅 Creating 2025 availability for guide...");
+      console.log("📅 Inserting 2025 availability...");
 
-      const startDate = moment("2025-01-01");
-      const endDate = moment("2025-12-31");
-      const availabilityRows = [];
+      const values = [];
+      const startDate = new Date("2025-01-01");
 
-      while (startDate.isSameOrBefore(endDate)) {
-        availabilityRows.push([
-          newUserId,
-          startDate.format("YYYY-MM-DD"),
-          "unavailable",
-        ]);
-        startDate.add(1, "day");
+      for (let i = 0; i < 365; i++) {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + i);
+        const formatted = d.toISOString().split("T")[0]; // YYYY-MM-DD
+        values.push([newUserId, formatted, "unavailable"]);
       }
 
-      try {
-        await connection.query(
-          "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
-          [availabilityRows]
-        );
-        console.log("2025 availability inserted.");
-      } catch (availabilityErr) {
-        console.error("Error inserting guide availability:", availabilityErr);
-      }
+      await connection.query(
+        "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
+        [values]
+      );
+
+      console.log("✅ 2025 availability inserted for guide.");
     }
 
     res.status(201).json({
@@ -357,7 +352,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       userId: newUserId,
     });
   } catch (err) {
-    console.error("Error creating new user:", err.message, err.stack);
+    console.error("❌ Error creating user:", err.message, err.stack);
 
     if (err.code === "ER_DUP_ENTRY") {
       return res
