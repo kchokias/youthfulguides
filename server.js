@@ -7,6 +7,7 @@ const mariadb = require("mariadb");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs"); // Use bcryptjs instead of bcrypt
+const moment = require("moment");
 const app = express(); // Create an instance of Express
 const allowedOrigins = ["http://localhost:4200", "https://youthfulguides.app"]; // Enable CORS with specific frontend origins
 const bodyParser = require("body-parser");
@@ -300,39 +301,60 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
 
-  // Validate required fields
   if (!name || !surname || !username || !email || !password || !role) {
     return res
       .status(400)
       .json({ success: false, message: "Missing required fields" });
   }
 
+  const connection = await pool.getConnection();
   try {
-    const connection = await pool.getConnection();
     console.log("Database connection established for CreateNewUser");
 
-    // Hash the password before storing using bcryptjs
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Insert new user
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, surname, username, email, hashedPassword, role, region, country] // Store hashed password
+      [name, surname, username, email, hashedPassword, role, region, country]
     );
 
-    connection.release();
-    console.log(`New user created with ID: ${result.insertId}`);
+    const newUserId = result.insertId;
+    console.log(`New user created with ID: ${newUserId}`);
+
+    // If role is guide, insert 2025 dates as unavailable
+    if (role === "guide") {
+      const startDate = moment("2025-01-01");
+      const endDate = moment("2025-12-31");
+      const availabilityRows = [];
+
+      while (startDate.isSameOrBefore(endDate)) {
+        availabilityRows.push([
+          newUserId,
+          startDate.format("YYYY-MM-DD"),
+          "unavailable",
+        ]);
+        startDate.add(1, "day");
+      }
+
+      await connection.query(
+        "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
+        [availabilityRows]
+      );
+
+      console.log("2025 availability created for new guide.");
+    }
 
     res.status(201).json({
       success: true,
       message: "User created successfully",
-      userId: result.insertId,
+      userId: newUserId,
     });
   } catch (err) {
     console.error("Error creating new user:", err);
 
-    // Handle duplicate email error
     if (err.code === "ER_DUP_ENTRY") {
       return res
         .status(409)
@@ -340,6 +362,8 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     }
 
     res.status(500).json({ success: false, message: "Failed to create user" });
+  } finally {
+    connection.release();
   }
 });
 
@@ -452,7 +476,97 @@ app.delete("/api/User/DeleteUserById/:id", async (req, res) => {
   }
 });
 
+//Availablity API
+//
+//
+//
+
+app.post("/api/Availability/Update", async (req, res) => {
+  const { guide_id, start_date, end_date, status } = req.body;
+
+  // Validate input
+  if (!guide_id || !start_date || !end_date || !status) {
+    return res.status(400).json({ success: false, message: "Missing fields" });
+  }
+
+  const validStatuses = ["available", "unavailable", "booked"];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ success: false, message: "Invalid status" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    const start = moment(start_date);
+    const end = moment(end_date);
+    if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid date range" });
+    }
+
+    const values = [];
+    while (start.isSameOrBefore(end)) {
+      values.push([guide_id, start.format("YYYY-MM-DD"), status]);
+      start.add(1, "day");
+    }
+
+    // Batch insert with ON DUPLICATE KEY UPDATE
+    await connection.query(
+      `
+      INSERT INTO guide_availability (guide_id, date, status)
+      VALUES ?
+      ON DUPLICATE KEY UPDATE status = VALUES(status)
+      `,
+      [values]
+    );
+
+    connection.release();
+    res.status(200).json({
+      success: true,
+      message: "Availability updated successfully",
+      daysUpdated: values.length,
+    });
+  } catch (err) {
+    console.error("Error updating availability:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+app.get("/api/Availability/Available/:guide_id", async (req, res) => {
+  const guideId = req.params.guide_id;
+
+  if (!guideId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Guide ID is required" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    const [rows] = await connection.query(
+      "SELECT date FROM guide_availability WHERE guide_id = ? AND status = 'available' ORDER BY date ASC",
+      [guideId]
+    );
+
+    connection.release();
+
+    res.status(200).json({
+      success: true,
+      availableDates: rows.map((row) => row.date),
+    });
+  } catch (err) {
+    console.error("Error fetching available dates:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // Define the /api/User/GetAllBookings route
+//
+//
+//
+
 app.get("/api/User/GetAllBookings", async (req, res) => {
   try {
     const connection = await pool.getConnection();
