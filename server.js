@@ -572,7 +572,7 @@ app.get("/api/Availability/Guide/:guide_id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    const [rows] = await connection.query(
+    const result = await connection.query(
       `SELECT date, status
        FROM guide_availability
        WHERE guide_id = ? AND status IN ('available', 'booked')
@@ -581,6 +581,8 @@ app.get("/api/Availability/Guide/:guide_id", async (req, res) => {
     );
 
     connection.release();
+
+    const rows = result[0] || result; // 🔧 safe for mysql2 / mariadb
 
     const availableDates = [];
     const bookedDates = [];
@@ -596,7 +598,7 @@ app.get("/api/Availability/Guide/:guide_id", async (req, res) => {
       bookedDates,
     });
   } catch (err) {
-    console.error("Error fetching guide availability:", err);
+    console.error("❌ Error fetching guide availability:", err);
     res.status(500).json({
       success: false,
       message: "Server error",
