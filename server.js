@@ -316,7 +316,7 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create the new user
+    // Create the user
     const result = await connection.query(
       `INSERT INTO users (name, surname, username, email, password, role, region, country)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -335,30 +335,28 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
     const newUserId = result.insertId;
     console.log(`✅ User created with ID: ${newUserId}, role: ${role}`);
 
-    // Insert 2025 availability if guide
+    // Insert availability if role is 'guide'
     if (role.toLowerCase() === "guide") {
-      console.log("📅 Preparing 2025 availability...");
+      console.log("📅 Generating 2025 availability...");
 
       const values = [];
-      const baseDate = new Date("2025-01-01");
+      let date = moment("2025-01-01");
 
-      for (let i = 0; i < 365; i++) {
-        const d = new Date(baseDate);
-        d.setDate(d.getDate() + i);
-        const formatted = d.toISOString().split("T")[0];
-        values.push([newUserId, formatted, "unavailable"]);
+      while (date.isSameOrBefore("2025-12-31")) {
+        values.push([newUserId, date.format("YYYY-MM-DD"), "unavailable"]);
+        date.add(1, "day");
       }
 
       const placeholders = values.map(() => "(?, ?, ?)").join(", ");
       const flatValues = values.flat();
 
-      const availabilitySql = `
+      const sql = `
         INSERT IGNORE INTO guide_availability (guide_id, date, status)
         VALUES ${placeholders}
       `;
 
       console.log("🚀 Executing availability insert...");
-      await connection.query(availabilitySql, flatValues);
+      await connection.query(sql, flatValues);
       console.log("✅ 2025 availability inserted for guide.");
     }
 
@@ -383,35 +381,6 @@ app.post("/api/User/CreateNewUser", async (req, res) => {
       message: "Failed to create user",
       error: err.message || "Unknown error",
     });
-  } finally {
-    connection.release();
-  }
-});
-
-app.get("/api/test-insert", async (req, res) => {
-  const connection = await pool.getConnection();
-  const guideId = 9999; // any test user
-  const base = new Date("2025-01-01");
-  const values = [];
-
-  for (let i = 0; i < 3; i++) {
-    const d = new Date(base);
-    d.setDate(base.getDate() + i);
-    const formatted = d.toISOString().split("T")[0];
-    values.push([guideId, formatted, "unavailable"]);
-  }
-
-  console.log("👀 Values going into DB:", values);
-
-  try {
-    await connection.query(
-      "INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ?",
-      [values]
-    );
-    res.send("✅ Insert test successful");
-  } catch (err) {
-    console.error("❌ Insert test failed:", err);
-    res.status(500).send("Failed: " + err.message);
   } finally {
     connection.release();
   }
