@@ -559,32 +559,49 @@ app.post("/api/Availability/Update", async (req, res) => {
   }
 });
 
-app.get("/api/Availability/Available/:guide_id", async (req, res) => {
+app.get("/api/Availability/Guide/:guide_id", async (req, res) => {
   const guideId = req.params.guide_id;
 
   if (!guideId) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Guide ID is required" });
+    return res.status(400).json({
+      success: false,
+      message: "Guide ID is required",
+    });
   }
 
   try {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.query(
-      "SELECT date FROM guide_availability WHERE guide_id = ? AND status = 'available' ORDER BY date ASC",
+      `SELECT date, status
+       FROM guide_availability
+       WHERE guide_id = ? AND status IN ('available', 'booked')
+       ORDER BY date ASC`,
       [guideId]
     );
 
     connection.release();
 
+    const availableDates = [];
+    const bookedDates = [];
+
+    rows.forEach((row) => {
+      if (row.status === "available") availableDates.push(row.date);
+      else if (row.status === "booked") bookedDates.push(row.date);
+    });
+
     res.status(200).json({
       success: true,
-      availableDates: rows.map((row) => row.date),
+      availableDates,
+      bookedDates,
     });
   } catch (err) {
-    console.error("Error fetching available dates:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Error fetching guide availability:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message || "Unknown error",
+    });
   }
 });
 
