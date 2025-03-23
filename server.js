@@ -524,25 +524,25 @@ app.post("/api/Availability/Update", async (req, res) => {
 
   const connection = await pool.getConnection();
   try {
-    // 🛡️ Step 1: Check for booked dates in range
-    const [bookedRows] = await connection.query(
+    const bookedRows = await connection.query(
       `SELECT date FROM guide_availability
        WHERE guide_id = ? AND status = 'booked'
        AND date BETWEEN ? AND ?`,
       [guide_id, start.format("YYYY-MM-DD"), end.format("YYYY-MM-DD")]
     );
-
+    
     if (bookedRows.length > 0) {
-      const bookedDates = bookedRows.map((row) =>
+      const bookedDates = bookedRows.map(row =>
         moment(row.date).format("DD.MM.YYYY")
       );
-
+    
       connection.release();
       return res.status(409).json({
         success: false,
         message: "Some dates are already booked and cannot be updated.",
-        bookedDates,
+        bookedDates
       });
+    }
     }
 
     // ✅ Step 2: Prepare availability updates

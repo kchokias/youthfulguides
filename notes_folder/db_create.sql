@@ -50,6 +50,15 @@ CREATE TABLE profile_photos (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE guide_availability (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    guide_id INT NOT NULL,
+    date DATE NOT NULL,
+    status ENUM('available', 'unavailable', 'booked') NOT NULL DEFAULT 'available',
+    FOREIGN KEY (guide_id) REFERENCES user(id) ON DELETE CASCADE,
+    UNIQUE (guide_id, date)
+);
+
 --first booking
 INSERT INTO bookings (guide_id, visitor_id, rate, review)
 VALUES (1, 2, 8, 'Great tour! Very knowledgeable guide.');
