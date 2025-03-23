@@ -685,41 +685,60 @@ app.post("/api/User/CreateNewBooking", async (req, res) => {
   }
 });
 
-// Define the /api/User/UpdateBooking route
 app.put("/api/User/UpdateBooking/:id", async (req, res) => {
   const bookingId = req.params.id;
-  const { rate, review } = req.body;
+  const { rate, review, date } = req.body;
 
-  // Validate input
+  // Validate rating and review
   if (rate < 1 || rate > 10 || !review) {
     return res
       .status(400)
       .json({ success: false, message: "Invalid input data" });
   }
 
+  // If date is provided, validate and convert it
+  let formattedDate = null;
+  if (date) {
+    const momentDate = moment(date, "DD.MM.YYYY", true); // strict mode
+    if (!momentDate.isValid()) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Invalid date format (use DD.MM.YYYY)",
+        });
+    }
+    formattedDate = momentDate.format("YYYY-MM-DD");
+  }
+
   try {
     const connection = await pool.getConnection();
-    console.log(
-      `Database connection established for UpdateBooking with ID: ${bookingId}`
-    );
+    console.log(`📦 Updating booking ID: ${bookingId}`);
 
-    const result = await connection.query(
-      "UPDATE bookings SET rate = ?, review = ? WHERE id = ?",
-      [rate, review, bookingId]
-    );
+    let sql = "UPDATE bookings SET rate = ?, review = ?";
+    const params = [rate, review];
+
+    if (formattedDate) {
+      sql += ", date = ?";
+      params.push(formattedDate);
+    }
+
+    sql += " WHERE id = ?";
+    params.push(bookingId);
+
+    const result = await connection.query(sql, params);
     connection.release();
 
     if (result.affectedRows === 0) {
-      console.log(`Booking with ID: ${bookingId} not found`);
       return res
         .status(404)
         .json({ success: false, message: "Booking not found" });
     }
 
-    console.log(`Booking with ID: ${bookingId} updated successfully`);
+    console.log(`✅ Booking ID ${bookingId} updated`);
     res.json({ success: true, message: "Booking updated successfully" });
   } catch (err) {
-    console.error(`Error updating booking with ID: ${bookingId}`, err);
+    console.error(`❌ Error updating booking ID ${bookingId}:`, err);
     res
       .status(500)
       .json({ success: false, message: "Failed to update booking" });
