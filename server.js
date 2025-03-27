@@ -1029,6 +1029,14 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   }
 });
 
+app.get("/api/debug/health", (req, res) => {
+  res.json({
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    pid: process.pid,
+  });
+});
+
 // Define a basic route
 app.get("/", (req, res) => {
   res.send("Welcome to YouthfulGuides.app!");
