@@ -1035,53 +1035,58 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 });
 
 app.get("/api/AvailableGuides", async (req, res) => {
-  let { start, end, region } = req.query;
+  const { start, end, region } = req.query;
+
+  console.log("Full URL:", req.url);
+  console.log("Query object:", JSON.stringify(req.query));
+  console.log("Raw start:", start);
+  console.log("Raw end:", end);
+  console.log("Raw region:", region);
 
   if (!start || !end || !region) {
+    console.log("❌ Missing one or more required query params.");
     return res.status(400).json({ message: "Missing parameters" });
   }
 
-  // Convert dates to SQL format
-  start = convertToSqlDate(start);
-  end = convertToSqlDate(end);
-
   try {
-    console.log("Parsed start:", start);
-    console.log("Parsed end:", end);
-    console.log("Region:", region);
-    console.log("SQL:", sql);
-    console.log("Params:", params);
-    // Base SQL
+    const parsedStart = convertToSqlDate(start);
+    const parsedEnd = convertToSqlDate(end);
+
+    console.log("✅ Parsed Start:", parsedStart);
+    console.log("✅ Parsed End:", parsedEnd);
+
     let sql = `
       SELECT 
-        g.id AS guide_id, 
-        g.name, 
-        g.surname, 
-        g.country, 
-        g.region,
+        u.id AS guide_id,
+        u.name,
+        u.surname,
+        u.country,
+        u.region,
         p.photo_data AS profile_picture
-      FROM guides g
-      JOIN profile_photos p ON g.id = p.user_id
-      WHERE g.id IN (
+      FROM users u
+      JOIN profile_photos p ON u.id = p.user_id
+      WHERE u.role = 'guide' AND u.id IN (
         SELECT DISTINCT a.guide_id
-        FROM availability a
-        WHERE a.date BETWEEN ? AND ?
+        FROM guide_availability a
+        WHERE a.status = 'available' AND a.date BETWEEN ? AND ?
       )
     `;
 
-    // Build parameters
-    const params = [start, end];
+    const params = [parsedStart, parsedEnd];
 
     if (region !== "all") {
-      sql += " AND g.region = ?";
+      sql += " AND u.region = ?";
       params.push(region);
     }
 
-    const [guides] = await db.execute(sql, params);
+    const connection = await pool.getConnection();
+    const guides = await connection.query(sql, params);
+    connection.release();
 
+    console.log("✅ Found guides:", guides.length);
     res.json(guides);
   } catch (err) {
-    console.error("AvailableGuides Error:", err.stack || err);
+    console.error("🔥 AvailableGuides Error:", err.stack || err);
     res.status(500).json({ message: "Server error" });
   }
 });
