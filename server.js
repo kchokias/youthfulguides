@@ -1029,6 +1029,46 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
   }
 });
 
+app.get("/api/AvailableGuides", async (req, res) => {
+  let { start, end, region } = req.query;
+
+  if (!start || !end || !region) {
+    return res.status(400).json({ message: "Missing parameters" });
+  }
+
+  // Convert dates to SQL format
+  start = convertToSqlDate(start);
+  end = convertToSqlDate(end);
+
+  try {
+    const [guides] = await db.execute(
+      `
+      SELECT 
+        g.id AS guide_id, 
+        g.name, 
+        g.surname, 
+        g.country, 
+        g.region,
+        p.photo_data AS profile_picture
+      FROM guides g
+      JOIN profile_photos p ON g.id = p.user_id
+      WHERE g.id IN (
+        SELECT DISTINCT a.guide_id
+        FROM availability a
+        WHERE a.date BETWEEN ? AND ?
+      )
+      ${region !== "all" ? "AND g.region = ?" : ""}
+      `,
+      region !== "all" ? [start, end, region] : [start, end]
+    );
+
+    res.json(guides);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 app.get("/api/debug/health", (req, res) => {
   res.json({
     uptime: process.uptime(),
