@@ -1034,12 +1034,6 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 app.get("/api/AvailableGuides", async (req, res) => {
   const { start, end, region } = req.query;
 
-  console.log("Full URL:", req.url);
-  console.log("Query object:", JSON.stringify(req.query));
-  console.log("Raw start:", start);
-  console.log("Raw end:", end);
-  console.log("Raw region:", region);
-
   if (!start || !end || !region) {
     console.log("❌ Missing one or more required query params.");
     return res.status(400).json({ message: "Missing parameters" });
@@ -1049,9 +1043,6 @@ app.get("/api/AvailableGuides", async (req, res) => {
     const parsedStart = convertToSqlDate(start);
     const parsedEnd = convertToSqlDate(end);
 
-    //console.log("✅ Parsed Start:", parsedStart);
-    //console.log("✅ Parsed End:", parsedEnd);
-
     let sql = `
       SELECT 
         u.id AS guide_id,
@@ -1059,14 +1050,18 @@ app.get("/api/AvailableGuides", async (req, res) => {
         u.surname,
         u.country,
         u.region,
-        p.photo_data AS profile_picture
+        p.photo_data AS profile_picture,
+        IFNULL(AVG(b.rate), -1) AS average_rating
       FROM users u
       JOIN profile_photos p ON u.id = p.user_id
-      WHERE u.role = 'guide' AND u.id IN (
-        SELECT DISTINCT a.guide_id
-        FROM guide_availability a
-        WHERE a.status = 'available' AND a.date BETWEEN ? AND ?
-      )
+      LEFT JOIN bookings b ON u.id = b.guide_id
+      WHERE u.role = 'guide'
+        AND u.id IN (
+          SELECT DISTINCT a.guide_id
+          FROM guide_availability a
+          WHERE a.status = 'available'
+          AND a.date BETWEEN ? AND ?
+        )
     `;
 
     const params = [parsedStart, parsedEnd];
@@ -1076,11 +1071,13 @@ app.get("/api/AvailableGuides", async (req, res) => {
       params.push(region);
     }
 
+    sql += " GROUP BY u.id";
+
     const connection = await pool.getConnection();
     const guides = await connection.query(sql, params);
     connection.release();
 
-    console.log("✅ Found guides:", guides.length);
+    console.log("✅ Found guides with ratings:", guides.length);
     res.json(guides);
   } catch (err) {
     console.error("🔥 AvailableGuides Error:", err.stack || err);
