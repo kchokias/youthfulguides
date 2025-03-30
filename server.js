@@ -1046,6 +1046,11 @@ app.get("/api/AvailableGuides", async (req, res) => {
   end = convertToSqlDate(end);
 
   try {
+    console.log("Parsed start:", start);
+    console.log("Parsed end:", end);
+    console.log("Region:", region);
+    console.log("SQL:", sql);
+    console.log("Params:", params);
     // Base SQL
     let sql = `
       SELECT 
@@ -1076,7 +1081,7 @@ app.get("/api/AvailableGuides", async (req, res) => {
 
     res.json(guides);
   } catch (err) {
-    console.error("AvailableGuides Error:", err); // ← detailed error message
+    console.error("AvailableGuides Error:", err.stack || err);
     res.status(500).json({ message: "Server error" });
   }
 });
