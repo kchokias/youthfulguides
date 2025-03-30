@@ -1076,7 +1076,7 @@ app.get("/api/AvailableGuides", async (req, res) => {
 
     res.json(guides);
   } catch (err) {
-    console.error(err);
+    console.error("AvailableGuides Error:", err); // ← detailed error message
     res.status(500).json({ message: "Server error" });
   }
 });
