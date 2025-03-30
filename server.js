@@ -17,6 +17,11 @@ app.use(bodyParser.json({ limit: "50mb" })); // Allow large Base64 uploads
 
 //const dbUrl = env.("DB_URL")
 
+function convertToSqlDate(input) {
+  const [day, month, year] = input.split(".");
+  return `${year}-${month}-${day}`;
+}
+
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -1041,8 +1046,8 @@ app.get("/api/AvailableGuides", async (req, res) => {
   end = convertToSqlDate(end);
 
   try {
-    const [guides] = await db.execute(
-      `
+    // Base SQL
+    let sql = `
       SELECT 
         g.id AS guide_id, 
         g.name, 
@@ -1057,10 +1062,17 @@ app.get("/api/AvailableGuides", async (req, res) => {
         FROM availability a
         WHERE a.date BETWEEN ? AND ?
       )
-      ${region !== "all" ? "AND g.region = ?" : ""}
-      `,
-      region !== "all" ? [start, end, region] : [start, end]
-    );
+    `;
+
+    // Build parameters
+    const params = [start, end];
+
+    if (region !== "all") {
+      sql += " AND g.region = ?";
+      params.push(region);
+    }
+
+    const [guides] = await db.execute(sql, params);
 
     res.json(guides);
   } catch (err) {
