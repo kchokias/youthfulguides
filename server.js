@@ -12,11 +12,8 @@ const app = express(); // Create an instance of Express
 const allowedOrigins = ["http://localhost:4200", "https://youthfulguides.app"]; // Enable CORS with specific frontend origins
 const bodyParser = require("body-parser");
 app.use(bodyParser.json({ limit: "50mb" })); // Allow large Base64 uploads
-//DB_URL=`1234`
-//DB_URL=`4567`
 
-//const dbUrl = env.("DB_URL")
-
+//this function is used in find guide to format date in sql format input yyyy-mm-dd to DD.MM.YYYY
 function convertToSqlDate(input) {
   const [day, month, year] = input.split(".");
   return `${year}-${month}-${day}`;
@@ -1052,8 +1049,8 @@ app.get("/api/AvailableGuides", async (req, res) => {
     const parsedStart = convertToSqlDate(start);
     const parsedEnd = convertToSqlDate(end);
 
-    console.log("✅ Parsed Start:", parsedStart);
-    console.log("✅ Parsed End:", parsedEnd);
+    //console.log("✅ Parsed Start:", parsedStart);
+    //console.log("✅ Parsed End:", parsedEnd);
 
     let sql = `
       SELECT 
