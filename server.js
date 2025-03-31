@@ -1084,7 +1084,64 @@ app.get("/api/AvailableGuides", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+//forgot password APIs
+app.post("/api/User/ForgotPassword", async (req, res) => {
+  const { email } = req.body;
 
+  if (!email) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Email is required" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1. Find user by email
+    const [user] = await connection.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (!user || user.length === 0) {
+      connection.release();
+      console.log("Forgot password: no user found for email", email);
+      return res.status(200).json({
+        success: true,
+        message: "If this email exists, a reset link will be sent.",
+      });
+    }
+
+    const userId = user.id;
+
+    // 2. Generate secure token
+    const token = crypto.randomBytes(32).toString("hex");
+
+    // 3. Store token in DB
+    await connection.query(
+      "INSERT INTO password_resets (user_id, token) VALUES (?, ?)",
+      [userId, token]
+    );
+
+    connection.release();
+
+    // 4. Build reset link
+    const resetLink = `https://youthfulguides.app/reset-password?token=${token}`;
+    console.log("🔗 Password reset link:", resetLink);
+
+    // TODO: Email the reset link (for now, just return it for testing)
+    res.status(200).json({
+      success: true,
+      message: "Password reset link has been generated.",
+      resetLink, // <-- remove this in production!
+    });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+//general API
 app.get("/api/debug/health", (req, res) => {
   res.json({
     uptime: process.uptime(),
