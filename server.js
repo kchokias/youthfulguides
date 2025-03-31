@@ -1077,7 +1077,7 @@ app.get("/api/AvailableGuides", async (req, res) => {
     const guides = await connection.query(sql, params);
     connection.release();
 
-    console.log("✅ Found guides with ratings:", guides.length);
+    console.log("Found guides with ratings:", guides.length);
     res.json(guides);
   } catch (err) {
     console.error("🔥 AvailableGuides Error:", err.stack || err);
@@ -1097,7 +1097,7 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    console.log(`📧 ForgotPassword request for: ${email}`);
+    console.log(`ForgotPassword request for: ${email}`);
 
     // 1. Find user by email
     const [user] = await connection.query(
@@ -1106,7 +1106,7 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
     );
 
     if (!user || user.length === 0) {
-      console.log("🔍 No user found for this email.");
+      console.log("No user found for this email.");
       connection.release();
       return res.status(200).json({
         success: true,
@@ -1127,9 +1127,7 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
       [userId, token]
     );
 
-    console.log(
-      `💾 Token inserted into DB. Insert ID: ${insertResult.insertId}`
-    );
+    console.log(`Token inserted into DB. Insert ID: ${insertResult.insertId}`);
 
     connection.release();
 
@@ -1143,7 +1141,12 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
       resetLink,
     });
   } catch (err) {
-    console.error("❌ Forgot password error:", err);
+    console.error(
+      "❌ Forgot password error:",
+      err.message,
+      err.code,
+      err.sqlMessage
+    );
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
