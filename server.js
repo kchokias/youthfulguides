@@ -1097,6 +1097,8 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
+    console.log(`📧 ForgotPassword request for: ${email}`);
+
     // 1. Find user by email
     const [user] = await connection.query(
       "SELECT id FROM users WHERE email = ?",
@@ -1104,8 +1106,8 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
     );
 
     if (!user || user.length === 0) {
+      console.log("🔍 No user found for this email.");
       connection.release();
-      console.log("Forgot password: no user found for email", email);
       return res.status(200).json({
         success: true,
         message: "If this email exists, a reset link will be sent.",
@@ -1113,30 +1115,35 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
     }
 
     const userId = user.id;
+    console.log(`✅ User found. ID: ${userId}`);
 
-    // 2. Generate secure token
+    // 2. Generate token
     const token = crypto.randomBytes(32).toString("hex");
+    console.log(`🔐 Token generated: ${token}`);
 
     // 3. Store token in DB
-    await connection.query(
+    const insertResult = await connection.query(
       "INSERT INTO password_resets (user_id, token) VALUES (?, ?)",
       [userId, token]
     );
 
+    console.log(
+      `💾 Token inserted into DB. Insert ID: ${insertResult.insertId}`
+    );
+
     connection.release();
 
-    // 4. Build reset link
+    // 4. Reset link (placeholder for email)
     const resetLink = `https://youthfulguides.app/reset-password?token=${token}`;
     console.log("🔗 Password reset link:", resetLink);
 
-    // TODO: Email the reset link (for now, just return it for testing)
     res.status(200).json({
       success: true,
       message: "Password reset link has been generated.",
-      resetLink, // <-- remove this in production!
+      resetLink,
     });
   } catch (err) {
-    console.error("Forgot password error:", err);
+    console.error("❌ Forgot password error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
