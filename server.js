@@ -1150,6 +1150,76 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
   }
 });
 
+app.post("/api/User/ResetPassword", async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Token and new password are required" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1. Find token in DB
+    const result = await connection.query(
+      "SELECT user_id, created_at FROM password_resets WHERE token = ?",
+      [token]
+    );
+
+    if (!result || result.length === 0) {
+      connection.release();
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired token" });
+    }
+
+    const { user_id, created_at } = result[0];
+
+    // 2. Optional: Check token expiration (1 hour = 3600000 ms)
+    const now = new Date();
+    const created = new Date(created_at);
+    const diff = now - created;
+
+    if (diff > 3600000) {
+      // 1 hour
+      await connection.query("DELETE FROM password_resets WHERE token = ?", [
+        token,
+      ]);
+      connection.release();
+      return res
+        .status(400)
+        .json({ success: false, message: "Token has expired" });
+    }
+
+    // 3. Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // 4. Update user's password
+    await connection.query("UPDATE users SET password = ? WHERE id = ?", [
+      hashedPassword,
+      user_id,
+    ]);
+
+    // 5. Remove token from DB
+    await connection.query("DELETE FROM password_resets WHERE token = ?", [
+      token,
+    ]);
+
+    connection.release();
+
+    console.log(`✅ Password reset successful for user ID: ${user_id}`);
+    res
+      .status(200)
+      .json({ success: true, message: "Password has been reset successfully" });
+  } catch (err) {
+    console.error("❌ ResetPassword error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 //general API
 app.get("/api/debug/health", (req, res) => {
   res.json({
