@@ -1143,7 +1143,8 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Forgot password FULL ERROR DUMP:");
-    console.dir(err, { depth: null });
+    console.error(err); // Log the object itself
+    console.error(JSON.stringify(err, null, 2)); // Try stringify fallback
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
