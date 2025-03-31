@@ -2,6 +2,7 @@
 //require('dotenv').config();
 
 const express = require("express");
+const crypto = require("crypto");
 const cors = require("cors"); // Import CORS
 const mariadb = require("mariadb");
 const path = require("path");
