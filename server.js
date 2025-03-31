@@ -1097,16 +1097,16 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    console.log(`ForgotPassword request for: ${email}`);
+    console.log(`📧 ForgotPassword request for: ${email}`);
 
     // 1. Find user by email
-    const [user] = await connection.query(
+    const result = await connection.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
     );
 
-    if (!user || user.length === 0) {
-      console.log("No user found for this email.");
+    if (!result || result.length === 0) {
+      console.log("🔍 No user found for this email.");
       connection.release();
       return res.status(200).json({
         success: true,
@@ -1114,10 +1114,10 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
       });
     }
 
-    const userId = user.id;
+    const userId = result[0].id;
     console.log(`✅ User found. ID: ${userId}`);
 
-    // 2. Generate token
+    // 2. Generate secure token
     const token = crypto.randomBytes(32).toString("hex");
     console.log(`🔐 Token generated: ${token}`);
 
@@ -1127,25 +1127,25 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
       [userId, token]
     );
 
-    console.log(`Token inserted into DB. Insert ID: ${insertResult.insertId}`);
-
+    console.log(
+      `💾 Token inserted into DB. Insert ID: ${insertResult.insertId}`
+    );
     connection.release();
 
-    // 4. Reset link (placeholder for email)
+    // 4. Reset link (for now just log it — later send via email)
     const resetLink = `https://youthfulguides.app/reset-password?token=${token}`;
     console.log("🔗 Password reset link:", resetLink);
 
     res.status(200).json({
       success: true,
       message: "Password reset link has been generated.",
-      resetLink,
+      resetLink, // remove this in production
     });
   } catch (err) {
     console.error("❌ Forgot password FULL ERROR DUMP:");
-    console.dir(err, { depth: null }); // <- this will print everything
+    console.dir(err, { depth: null });
     res.status(500).json({ success: false, message: "Server error" });
   }
-  res.status(500).json({ success: false, message: "Server error" });
 });
 
 //general API
