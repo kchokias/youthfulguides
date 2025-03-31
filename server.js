@@ -1141,14 +1141,11 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
       resetLink,
     });
   } catch (err) {
-    console.error(
-      "❌ Forgot password error:",
-      err.message,
-      err.code,
-      err.sqlMessage
-    );
+    console.error("❌ Forgot password FULL ERROR DUMP:");
+    console.dir(err, { depth: null }); // <- this will print everything
     res.status(500).json({ success: false, message: "Server error" });
   }
+  res.status(500).json({ success: false, message: "Server error" });
 });
 
 //general API
