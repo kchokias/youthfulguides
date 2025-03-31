@@ -12,13 +12,24 @@ const moment = require("moment");
 const app = express(); // Create an instance of Express
 const allowedOrigins = ["http://localhost:4200", "https://youthfulguides.app"]; // Enable CORS with specific frontend origins
 const bodyParser = require("body-parser");
-app.use(bodyParser.json({ limit: "50mb" })); // Allow large Base64 uploads
+const nodemailer = require("nodemailer");
+const transporter = nodemailer.createTransport({
+  host: "linux1587.grserver.gr",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 //this function is used in find guide to format date in sql format input yyyy-mm-dd to DD.MM.YYYY
 function convertToSqlDate(input) {
   const [day, month, year] = input.split(".");
   return `${year}-${month}-${day}`;
 }
+
+app.use(bodyParser.json({ limit: "50mb" })); // Allow large Base64 uploads
 
 app.use(
   cors({
@@ -1086,6 +1097,7 @@ app.get("/api/AvailableGuides", async (req, res) => {
   }
 });
 //forgot password APIs
+
 app.post("/api/User/ForgotPassword", async (req, res) => {
   const { email } = req.body;
 
@@ -1118,34 +1130,45 @@ app.post("/api/User/ForgotPassword", async (req, res) => {
     const userId = result[0].id;
     console.log(`✅ User found. ID: ${userId}`);
 
-    // 2. Generate secure token
+    // 2. Generate token
     const token = crypto.randomBytes(32).toString("hex");
     console.log(`🔐 Token generated: ${token}`);
 
-    // 3. Store token in DB
-    const insertResult = await connection.query(
+    // 3. Store token
+    await connection.query(
       "INSERT INTO password_resets (user_id, token) VALUES (?, ?)",
       [userId, token]
     );
 
-    console.log(
-      `💾 Token inserted into DB. Insert ID: ${insertResult.insertId}`
-    );
     connection.release();
 
-    // 4. Reset link (for now just log it — later send via email)
+    // 4. Build reset link
     const resetLink = `https://youthfulguides.app/reset-password?token=${token}`;
-    console.log("🔗 Password reset link:", resetLink);
+
+    // 5. Send email using already-declared transporter
+    const mailOptions = {
+      from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Reset Your Password",
+      html: `
+        <h3>Hello 👋</h3>
+        <p>We received a request to reset your password.</p>
+        <p><a href="${resetLink}">Click here to reset it</a></p>
+        <p>If you didn’t request this, just ignore this email.</p>
+        <br/>
+        <p>Stay youthful 🌍</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`📨 Reset email sent to ${email}`);
 
     res.status(200).json({
       success: true,
-      message: "Password reset link has been generated.",
-      resetLink, // remove this in production
+      message: "If this email exists, a reset link has been sent.",
     });
   } catch (err) {
-    console.error("❌ Forgot password FULL ERROR DUMP:");
-    console.error(err); // Log the object itself
-    console.error(JSON.stringify(err, null, 2)); // Try stringify fallback
+    console.error("❌ Forgot password error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
