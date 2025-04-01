@@ -1206,6 +1206,7 @@ app.post("/api/User/ResetPassword", async (req, res) => {
     const diff = now - created;
 
     if (diff > 3600000) {
+      //this is the time that the token is active. 1h for now. diff is in ms
       // 1 hour
       await connection.query("DELETE FROM password_resets WHERE token = ?", [
         token,
