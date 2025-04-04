@@ -1047,7 +1047,6 @@ app.get("/api/AvailableGuides", async (req, res) => {
   let { start, end, region, skip, take } = req.query;
 
   if (!start || !end || !region) {
-    console.log("❌ Missing one or more required query params.");
     return res.status(400).json({ message: "Missing parameters" });
   }
 
@@ -1101,16 +1100,43 @@ app.get("/api/AvailableGuides", async (req, res) => {
 
     const connection = await pool.getConnection();
 
-    const [guides] = await connection.query(sql, mainParams);
+    // Step 1: Fetch guides
+    const guides = await connection.query(sql, mainParams);
+
+    // Step 2: Fetch total count for pagination
     const [countResult] = await connection.query(countSql, countParams);
+
+    // Step 3: Get total bookings for all returned guides
+    const guideIds = guides.map((g) => g.guide_id);
+
+    let bookingCounts = [];
+    if (guideIds.length > 0) {
+      const placeholders = guideIds.map(() => "?").join(",");
+      const [rows] = await connection.query(
+        `SELECT guide_id, COUNT(*) AS total_bookings
+         FROM bookings
+         WHERE guide_id IN (${placeholders})
+         GROUP BY guide_id`,
+        guideIds
+      );
+
+      // Convert to lookup map
+      bookingCounts = Object.fromEntries(
+        rows.map((r) => [r.guide_id, r.total_bookings])
+      );
+    }
 
     connection.release();
 
-    const total = countResult.total;
+    // Step 4: Merge booking count into guides
+    const guidesWithCounts = guides.map((g) => ({
+      ...g,
+      total_bookings: bookingCounts[g.guide_id] || 0,
+    }));
 
     res.json({
-      total_available_guides: total,
-      guides,
+      total_available_guides: countResult.total,
+      guides: guidesWithCounts, // ← this is an array now
     });
   } catch (err) {
     console.error("🔥 AvailableGuides Error:", err.stack || err);
