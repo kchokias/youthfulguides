@@ -1080,6 +1080,7 @@ app.get("/api/AvailableGuides", async (req, res) => {
     const sql = `
       SELECT 
         u.id AS guide_id,
+        u.username,
         u.name,
         u.surname,
         u.country,
