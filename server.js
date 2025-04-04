@@ -1044,7 +1044,7 @@ app.get("/api/User/GetProfilePhoto/:userId", async (req, res) => {
 });
 
 app.get("/api/AvailableGuides", async (req, res) => {
-  const { start, end, region } = req.query;
+  let { start, end, region, skip, take } = req.query;
 
   if (!start || !end || !region) {
     console.log("❌ Missing one or more required query params.");
@@ -1054,6 +1054,10 @@ app.get("/api/AvailableGuides", async (req, res) => {
   try {
     const parsedStart = convertToSqlDate(start);
     const parsedEnd = convertToSqlDate(end);
+
+    // Handle pagination values
+    take = parseInt(take) || 10; // default to 10
+    skip = parseInt(skip) || 0; // default to 0
 
     let sql = `
       SELECT 
@@ -1083,13 +1087,14 @@ app.get("/api/AvailableGuides", async (req, res) => {
       params.push(region);
     }
 
-    sql += " GROUP BY u.id";
+    sql += " GROUP BY u.id LIMIT ? OFFSET ?";
+    params.push(take, skip);
 
     const connection = await pool.getConnection();
     const guides = await connection.query(sql, params);
     connection.release();
 
-    console.log("Found guides with ratings:", guides.length);
+    console.log("✅ Found guides with ratings:", guides.length);
     res.json(guides);
   } catch (err) {
     console.error("🔥 AvailableGuides Error:", err.stack || err);
