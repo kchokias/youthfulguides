@@ -1104,7 +1104,8 @@ app.get("/api/AvailableGuides", async (req, res) => {
     const guides = await connection.query(sql, mainParams);
 
     // Step 2: Fetch total count for pagination
-    const [countResult] = await connection.query(countSql, countParams);
+    const countResult = await connection.query(countSql, countParams);
+    const total = countResult[0]?.total || 0;
 
     // Step 3: Get total bookings for all returned guides
     const guideIds = guides.map((g) => g.guide_id);
@@ -1135,8 +1136,8 @@ app.get("/api/AvailableGuides", async (req, res) => {
     }));
 
     res.json({
-      total_available_guides: countResult.total,
-      guides: guidesWithCounts, // ← this is an array now
+      total_available_guides: total,
+      guides: guidesWithCounts,
     });
   } catch (err) {
     console.error("🔥 AvailableGuides Error:", err.stack || err);
