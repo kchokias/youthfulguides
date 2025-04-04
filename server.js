@@ -1055,11 +1055,31 @@ app.get("/api/AvailableGuides", async (req, res) => {
     const parsedStart = convertToSqlDate(start);
     const parsedEnd = convertToSqlDate(end);
 
-    // Handle pagination values
-    take = parseInt(take) || 10; // default to 10
-    skip = parseInt(skip) || 0; // default to 0
+    take = parseInt(take) || 10;
+    skip = parseInt(skip) || 0;
 
-    let sql = `
+    const mainParams = [parsedStart, parsedEnd];
+    const countParams = [parsedStart, parsedEnd];
+
+    let baseFilter = `
+      FROM users u
+      JOIN profile_photos p ON u.id = p.user_id
+      LEFT JOIN bookings b ON u.id = b.guide_id
+      WHERE u.role = 'guide'
+        AND u.id IN (
+          SELECT DISTINCT a.guide_id
+          FROM guide_availability a
+          WHERE a.status = 'available' AND a.date BETWEEN ? AND ?
+        )
+    `;
+
+    if (region !== "all") {
+      baseFilter += " AND u.region = ?";
+      mainParams.push(region);
+      countParams.push(region);
+    }
+
+    const sql = `
       SELECT 
         u.id AS guide_id,
         u.name,
@@ -1068,34 +1088,30 @@ app.get("/api/AvailableGuides", async (req, res) => {
         u.region,
         p.photo_data AS profile_picture,
         IFNULL(AVG(b.rate), -1) AS average_rating
-      FROM users u
-      JOIN profile_photos p ON u.id = p.user_id
-      LEFT JOIN bookings b ON u.id = b.guide_id
-      WHERE u.role = 'guide'
-        AND u.id IN (
-          SELECT DISTINCT a.guide_id
-          FROM guide_availability a
-          WHERE a.status = 'available'
-          AND a.date BETWEEN ? AND ?
-        )
+      ${baseFilter}
+      GROUP BY u.id
+      LIMIT ? OFFSET ?
+    `;
+    mainParams.push(take, skip);
+
+    const countSql = `
+      SELECT COUNT(DISTINCT u.id) AS total
+      ${baseFilter}
     `;
 
-    const params = [parsedStart, parsedEnd];
-
-    if (region !== "all") {
-      sql += " AND u.region = ?";
-      params.push(region);
-    }
-
-    sql += " GROUP BY u.id LIMIT ? OFFSET ?";
-    params.push(take, skip);
-
     const connection = await pool.getConnection();
-    const guides = await connection.query(sql, params);
+
+    const [guides] = await connection.query(sql, mainParams);
+    const [countResult] = await connection.query(countSql, countParams);
+
     connection.release();
 
-    console.log("✅ Found guides with ratings:", guides.length);
-    res.json(guides);
+    const total = countResult.total;
+
+    res.json({
+      total_available_guides: total,
+      guides,
+    });
   } catch (err) {
     console.error("🔥 AvailableGuides Error:", err.stack || err);
     res.status(500).json({ message: "Server error" });
