@@ -1053,7 +1053,6 @@ app.get("/api/AvailableGuides", async (req, res) => {
   try {
     const parsedStart = convertToSqlDate(start);
     const parsedEnd = convertToSqlDate(end);
-
     take = parseInt(take) || 10;
     skip = parseInt(skip) || 0;
 
@@ -1100,28 +1099,25 @@ app.get("/api/AvailableGuides", async (req, res) => {
 
     const connection = await pool.getConnection();
 
-    // Step 1: Fetch guides
+    // 🔍 Fetch guides
     const guides = await connection.query(sql, mainParams);
-
-    // Step 2: Fetch total count for pagination
+    // 🔍 Fetch total count
     const countResult = await connection.query(countSql, countParams);
     const total = countResult[0]?.total || 0;
 
-    // Step 3: Get total bookings for all returned guides
+    // 🔍 Fetch booking counts for each guide
     const guideIds = guides.map((g) => g.guide_id);
+    let bookingCounts = {};
 
-    let bookingCounts = [];
     if (guideIds.length > 0) {
       const placeholders = guideIds.map(() => "?").join(",");
-      const [rows] = await connection.query(
+      const rows = await connection.query(
         `SELECT guide_id, COUNT(*) AS total_bookings
          FROM bookings
          WHERE guide_id IN (${placeholders})
          GROUP BY guide_id`,
         guideIds
       );
-
-      // Convert to lookup map
       bookingCounts = Object.fromEntries(
         rows.map((r) => [r.guide_id, r.total_bookings])
       );
@@ -1129,7 +1125,7 @@ app.get("/api/AvailableGuides", async (req, res) => {
 
     connection.release();
 
-    // Step 4: Merge booking count into guides
+    // 🧩 Merge booking counts into guides
     const guidesWithCounts = guides.map((g) => ({
       ...g,
       total_bookings: bookingCounts[g.guide_id] || 0,
