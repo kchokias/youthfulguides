@@ -1117,6 +1117,34 @@ app.get("/api/AvailableGuides", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+app.get("/api/Bookings/TotalByGuide/:guide_id", async (req, res) => {
+  const guideId = req.params.guide_id;
+
+  if (!guideId) {
+    return res.status(400).json({ message: "Guide ID is required" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    const [result] = await connection.query(
+      `SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?`,
+      [guideId]
+    );
+
+    connection.release();
+
+    res.json({
+      guide_id: parseInt(guideId),
+      total_bookings: result.total_bookings || 0,
+    });
+  } catch (err) {
+    console.error("❌ Error counting bookings:", err);
+    res.status(500).json({ message: "Failed to count bookings" });
+  }
+});
+
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
