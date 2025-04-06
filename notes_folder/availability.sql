@@ -13,4 +13,4 @@ FROM (
   LIMIT 365
 ) AS t;
 
-this is to make unavailable a user for all the year in sql
+--this is to make unavailable a user for all the year in sql
