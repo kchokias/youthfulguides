@@ -1183,7 +1183,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 👤 Guide info
+    // 👤 Fetch guide profile
     const guideQuery = `
       SELECT 
         u.id AS guide_id,
@@ -1201,7 +1201,8 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       GROUP BY u.id
     `;
     const guideResult = await connection.query(guideQuery, [guideId]);
-    console.log("🟢 guideResult:", guideResult);
+    console.log("🟢 guideResult:", JSON.stringify(guideResult));
+    console.log("🟢 guideResult[0]:", guideResult?.[0]);
 
     const guide =
       Array.isArray(guideResult) && guideResult.length > 0
@@ -1213,21 +1214,25 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       return res.status(404).json({ message: "Guide not found" });
     }
 
-    // 📦 Booking count
+    // 🔢 Booking count
     const bookingCountResult = await connection.query(
       "SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?",
       [guideId]
     );
-    console.log("🟢 bookingCountResult:", bookingCountResult);
+    console.log("🟢 bookingCountResult:", JSON.stringify(bookingCountResult));
+    console.log(
+      "🟢 total_bookings value:",
+      bookingCountResult?.[0]?.total_bookings
+    );
 
     guide.total_bookings = bookingCountResult?.[0]?.total_bookings || 0;
 
-    // 🖼 Media
+    // 🖼 Media files
     const mediaResult = await connection.query(
       "SELECT id, file_name, file_data FROM media WHERE guide_id = ?",
       [guideId]
     );
-    console.log("🟢 mediaResult:", mediaResult);
+    console.log("🟢 mediaResult:", JSON.stringify(mediaResult));
 
     guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
