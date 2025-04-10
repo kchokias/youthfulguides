@@ -1183,7 +1183,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 👤 Guide profile
+    // 👤 Guide info
     const guideQuery = `
       SELECT 
         u.id AS guide_id,
@@ -1201,63 +1201,27 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       GROUP BY u.id
     `;
     const guideResult = await connection.query(guideQuery, [guideId]);
-    process.stdout.write(
-      "🟢 guideResult: " + JSON.stringify(guideResult) + "\n"
-    );
-    process.stdout.write(
-      "🟢 guideResult[0]: " + JSON.stringify(guideResult?.[0]) + "\n"
-    );
 
-    const guide =
-      Array.isArray(guideResult) && guideResult.length > 0
-        ? guideResult[0]
-        : null;
-
-    if (!guide) {
-      connection.release();
-      return res.status(404).json({ message: "Guide not found" });
-    }
-
-    // 🔢 Booking count
     const bookingCountResult = await connection.query(
       "SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?",
       [guideId]
     );
-    process.stdout.write(
-      "🟢 bookingCountResult: " + JSON.stringify(bookingCountResult) + "\n"
-    );
-    process.stdout.write(
-      "🟢 total_bookings value: " +
-        JSON.stringify(bookingCountResult?.[0]?.total_bookings) +
-        "\n"
-    );
 
-    guide.total_bookings = bookingCountResult?.[0]?.total_bookings || 0;
-
-    // 🖼 Media
     const mediaResult = await connection.query(
       "SELECT id, file_name, file_data FROM media WHERE guide_id = ?",
       [guideId]
     );
-    process.stdout.write(
-      "🟢 mediaResult: " + JSON.stringify(mediaResult) + "\n"
-    );
-
-    guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
     connection.release();
 
-    res.json(guide);
+    // 🧪 Return everything raw to the client
+    res.json({
+      guideResult,
+      bookingCountResult,
+      mediaResult,
+    });
   } catch (err) {
-    process.stdout.write(
-      "🔥 GuideProfile raw error message: " + (err?.message || "none") + "\n"
-    );
-    process.stdout.write(
-      "🔥 GuideProfile raw error full: " +
-        util.inspect(err, { showHidden: true, depth: null }) +
-        "\n"
-    );
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ error: err?.message || "Server error" });
   }
 });
 
