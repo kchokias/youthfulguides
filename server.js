@@ -1183,7 +1183,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 👤 Guide info
+    // 👤 Guide profile
     const guideQuery = `
       SELECT 
         u.id AS guide_id,
@@ -1208,57 +1208,26 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
     );
 
     const mediaResult = await connection.query(
-      "SELECT id, file_name, file_data FROM media WHERE guide_id = ?",
+      "SELECT id, media_data, created_at FROM media WHERE guide_id = ?",
       [guideId]
     );
 
     connection.release();
 
-    // 🧪 Return everything raw to the client
-    res.json({
-      guideResult,
-      bookingCountResult,
-      mediaResult,
-    });
+    const guide =
+      Array.isArray(guideResult) && guideResult.length > 0
+        ? guideResult[0]
+        : null;
+    if (!guide) {
+      return res.status(404).json({ message: "Guide not found" });
+    }
+
+    guide.total_bookings = bookingCountResult?.[0]?.total_bookings || 0;
+    guide.media = Array.isArray(mediaResult) ? mediaResult : [];
+
+    res.json(guide);
   } catch (err) {
-    res.status(500).json({ error: err?.message || "Server error" });
-  }
-});
-
-app.get("/api/DebugMedia/:id", async (req, res) => {
-  const guideId = req.params.id;
-  try {
-    const connection = await pool.getConnection();
-    const mediaResult = await connection.query(
-      "SELECT * FROM media WHERE guide_id = ?",
-      [guideId]
-    );
-    connection.release();
-    res.json(mediaResult);
-  } catch (err) {
-    res.status(500).json({ error: err?.message || "Error" });
-  }
-});
-
-app.get("/api/TestDB/:id", async (req, res) => {
-  const id = req.params.id;
-
-  try {
-    const connection = await pool.getConnection();
-
-    const result = await connection.query(
-      "SELECT id, name FROM users WHERE id = ?",
-      [id]
-    );
-
-    console.log("🧪 Test result from mariadb:", result);
-
-    connection.release();
-
-    res.json({ ok: true, result });
-  } catch (err) {
-    console.error("🔥 Actual DB error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
 //forgot password APIs
