@@ -1225,6 +1225,21 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   }
 });
 
+app.get("/api/DebugMedia/:id", async (req, res) => {
+  const guideId = req.params.id;
+  try {
+    const connection = await pool.getConnection();
+    const mediaResult = await connection.query(
+      "SELECT * FROM media WHERE guide_id = ?",
+      [guideId]
+    );
+    connection.release();
+    res.json(mediaResult);
+  } catch (err) {
+    res.status(500).json({ error: err?.message || "Error" });
+  }
+});
+
 app.get("/api/TestDB/:id", async (req, res) => {
   const id = req.params.id;
 
