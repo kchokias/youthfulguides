@@ -1183,8 +1183,8 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 🔍 Basic info & average rating
-    const [guide] = await connection.query(
+    // 🔍 Fetch guide main info + profile photo + rating
+    const guideResult = await connection.query(
       `SELECT 
          u.id AS guide_id,
          u.name,
@@ -1194,42 +1194,46 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
          p.photo_data AS profile_picture,
          IFNULL(AVG(b.rate), -1) AS average_rating
        FROM users u
-       JOIN profile_photos p ON u.id = p.user_id
+       LEFT JOIN profile_photos p ON u.id = p.user_id
        LEFT JOIN bookings b ON u.id = b.guide_id
        WHERE u.id = ? AND u.role = 'guide'
        GROUP BY u.id`,
       [guideId]
     );
 
+    const guide = Array.isArray(guideResult) ? guideResult[0] : null;
+
     if (!guide) {
       connection.release();
       return res.status(404).json({ message: "Guide not found" });
     }
 
-    // 🔢 Booking count
-    const [bookingStats] = await connection.query(
+    // 🔢 Total number of bookings
+    const bookingCountResult = await connection.query(
       `SELECT COUNT(*) AS total_bookings 
        FROM bookings 
        WHERE guide_id = ?`,
       [guideId]
     );
-    guide.total_bookings = bookingStats.total_bookings || 0;
+    const totalBookings = Array.isArray(bookingCountResult)
+      ? bookingCountResult[0].total_bookings
+      : 0;
+    guide.total_bookings = totalBookings;
 
-    // 🖼 Media files
-    const media = await connection.query(
+    // 🖼 Fetch all media entries for this guide
+    const mediaResult = await connection.query(
       `SELECT id, file_name, file_data 
        FROM media 
        WHERE guide_id = ?`,
       [guideId]
     );
-
-    guide.media = media;
+    guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
     connection.release();
 
     res.json(guide);
   } catch (err) {
-    console.error("🔥 GuideProfile Error:", err.stack || err);
+    console.error("🔥 GuideProfile Error:", err); // real error
     res.status(500).json({ message: "Server error" });
   }
 });
