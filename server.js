@@ -13,6 +13,7 @@ const app = express(); // Create an instance of Express
 const allowedOrigins = ["http://localhost:4200", "https://youthfulguides.app"]; // Enable CORS with specific frontend origins
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
+const util = require("util");
 const transporter = nodemailer.createTransport({
   host: "linux1587.grserver.gr",
   port: 587,
@@ -1172,7 +1173,6 @@ app.get("/api/Bookings/TotalByGuide/:guide_id", async (req, res) => {
 ///API for profile preview
 ///
 ///
-
 app.get("/api/GuideProfile/:id", async (req, res) => {
   const guideId = req.params.id;
 
@@ -1201,7 +1201,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       GROUP BY u.id
     `;
     const guideResult = await connection.query(guideQuery, [guideId]);
-    console.log("🟢 guideResult:", guideResult);
+    console.log("🟢 guideResult (raw):", JSON.stringify(guideResult));
 
     const guide =
       Array.isArray(guideResult) && guideResult.length > 0
@@ -1218,10 +1218,15 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       `SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?`,
       [guideId]
     );
-    console.log("🟢 bookingCountResult:", bookingCountResult);
+    console.log(
+      "🟢 bookingCountResult (raw):",
+      JSON.stringify(bookingCountResult)
+    );
 
     guide.total_bookings =
-      Array.isArray(bookingCountResult) && bookingCountResult[0]?.total_bookings
+      Array.isArray(bookingCountResult) &&
+      bookingCountResult.length > 0 &&
+      bookingCountResult[0]?.total_bookings
         ? bookingCountResult[0].total_bookings
         : 0;
 
@@ -1230,7 +1235,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       `SELECT id, file_name, file_data FROM media WHERE guide_id = ?`,
       [guideId]
     );
-    console.log("🟢 mediaResult:", mediaResult);
+    console.log("🟢 mediaResult (raw):", JSON.stringify(mediaResult));
 
     guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
@@ -1238,10 +1243,10 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
 
     res.json(guide);
   } catch (err) {
-    const util = require("util");
+    console.log("🔥 GuideProfile raw error message:", err?.message);
     console.log(
-      "🔥 GuideProfile raw error:",
-      util.inspect(err, { showHidden: true, depth: null })
+      "🔥 GuideProfile raw error full:",
+      JSON.stringify(err, Object.getOwnPropertyNames(err))
     );
     res.status(500).json({ message: "Server error" });
   }
