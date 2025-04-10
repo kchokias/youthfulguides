@@ -1183,7 +1183,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 👤 Main guide profile query
+    // 👤 Guide info
     const guideQuery = `
       SELECT 
         u.id AS guide_id,
@@ -1200,8 +1200,8 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       WHERE u.id = ? AND u.role = 'guide'
       GROUP BY u.id
     `;
-    const [guideResult] = await connection.execute(guideQuery, [guideId]);
-    console.log("🟢 guideResult (raw):", JSON.stringify(guideResult));
+    const guideResult = await connection.query(guideQuery, [guideId]);
+    console.log("🟢 guideResult:", guideResult);
 
     const guide =
       Array.isArray(guideResult) && guideResult.length > 0
@@ -1213,27 +1213,21 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       return res.status(404).json({ message: "Guide not found" });
     }
 
-    // 🔢 Booking count
-    const [bookingCountResult] = await connection.execute(
-      `SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?`,
+    // 📦 Booking count
+    const bookingCountResult = await connection.query(
+      "SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?",
       [guideId]
     );
-    console.log(
-      "🟢 bookingCountResult (raw):",
-      JSON.stringify(bookingCountResult)
-    );
+    console.log("🟢 bookingCountResult:", bookingCountResult);
 
-    guide.total_bookings =
-      Array.isArray(bookingCountResult) && bookingCountResult.length > 0
-        ? bookingCountResult[0].total_bookings
-        : 0;
+    guide.total_bookings = bookingCountResult?.[0]?.total_bookings || 0;
 
-    // 🖼 Media files
-    const [mediaResult] = await connection.execute(
-      `SELECT id, file_name, file_data FROM media WHERE guide_id = ?`,
+    // 🖼 Media
+    const mediaResult = await connection.query(
+      "SELECT id, file_name, file_data FROM media WHERE guide_id = ?",
       [guideId]
     );
-    console.log("🟢 mediaResult (raw):", JSON.stringify(mediaResult));
+    console.log("🟢 mediaResult:", mediaResult);
 
     guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
