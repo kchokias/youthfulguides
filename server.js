@@ -1249,6 +1249,36 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+app.get("/api/TestDB/:id", async (req, res) => {
+  const id = req.params.id;
+  const util = require("util");
+
+  try {
+    const connection = await pool.getConnection();
+
+    const [result] = await connection.execute(
+      "SELECT id, name FROM users WHERE id = ?",
+      [id]
+    );
+
+    console.log("🧪 Test query result:", JSON.stringify(result));
+
+    connection.release();
+
+    res.json({
+      ok: true,
+      result: result,
+    });
+  } catch (err) {
+    console.log("🔥 Test error message:", err?.message);
+    console.log(
+      "🔥 Test error full:",
+      util.inspect(err, { showHidden: true, depth: null })
+    );
+    res.status(500).json({ message: "Server error" });
+  }
+});
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
