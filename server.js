@@ -1183,7 +1183,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 👤 Main guide query
+    // 👤 Main guide profile query
     const guideQuery = `
       SELECT 
         u.id AS guide_id,
@@ -1200,7 +1200,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       WHERE u.id = ? AND u.role = 'guide'
       GROUP BY u.id
     `;
-    const guideResult = await connection.query(guideQuery, [guideId]);
+    const [guideResult] = await connection.execute(guideQuery, [guideId]);
     console.log("🟢 guideResult (raw):", JSON.stringify(guideResult));
 
     const guide =
@@ -1214,7 +1214,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
     }
 
     // 🔢 Booking count
-    const bookingCountResult = await connection.query(
+    const [bookingCountResult] = await connection.execute(
       `SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?`,
       [guideId]
     );
@@ -1224,14 +1224,12 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
     );
 
     guide.total_bookings =
-      Array.isArray(bookingCountResult) &&
-      bookingCountResult.length > 0 &&
-      bookingCountResult[0]?.total_bookings
+      Array.isArray(bookingCountResult) && bookingCountResult.length > 0
         ? bookingCountResult[0].total_bookings
         : 0;
 
-    // 🖼 Media
-    const mediaResult = await connection.query(
+    // 🖼 Media files
+    const [mediaResult] = await connection.execute(
       `SELECT id, file_name, file_data FROM media WHERE guide_id = ?`,
       [guideId]
     );
@@ -1246,12 +1244,11 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
     console.log("🔥 GuideProfile raw error message:", err?.message);
     console.log(
       "🔥 GuideProfile raw error full:",
-      JSON.stringify(err, Object.getOwnPropertyNames(err))
+      util.inspect(err, { showHidden: true, depth: null })
     );
     res.status(500).json({ message: "Server error" });
   }
 });
-
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
