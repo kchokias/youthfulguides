@@ -1183,7 +1183,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 👤 Fetch guide profile
+    // 👤 Guide profile
     const guideQuery = `
       SELECT 
         u.id AS guide_id,
@@ -1201,8 +1201,12 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       GROUP BY u.id
     `;
     const guideResult = await connection.query(guideQuery, [guideId]);
-    console.log("🟢 guideResult:", JSON.stringify(guideResult));
-    console.log("🟢 guideResult[0]:", guideResult?.[0]);
+    process.stdout.write(
+      "🟢 guideResult: " + JSON.stringify(guideResult) + "\n"
+    );
+    process.stdout.write(
+      "🟢 guideResult[0]: " + JSON.stringify(guideResult?.[0]) + "\n"
+    );
 
     const guide =
       Array.isArray(guideResult) && guideResult.length > 0
@@ -1219,20 +1223,25 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
       "SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?",
       [guideId]
     );
-    console.log("🟢 bookingCountResult:", JSON.stringify(bookingCountResult));
-    console.log(
-      "🟢 total_bookings value:",
-      bookingCountResult?.[0]?.total_bookings
+    process.stdout.write(
+      "🟢 bookingCountResult: " + JSON.stringify(bookingCountResult) + "\n"
+    );
+    process.stdout.write(
+      "🟢 total_bookings value: " +
+        JSON.stringify(bookingCountResult?.[0]?.total_bookings) +
+        "\n"
     );
 
     guide.total_bookings = bookingCountResult?.[0]?.total_bookings || 0;
 
-    // 🖼 Media files
+    // 🖼 Media
     const mediaResult = await connection.query(
       "SELECT id, file_name, file_data FROM media WHERE guide_id = ?",
       [guideId]
     );
-    console.log("🟢 mediaResult:", JSON.stringify(mediaResult));
+    process.stdout.write(
+      "🟢 mediaResult: " + JSON.stringify(mediaResult) + "\n"
+    );
 
     guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
@@ -1240,10 +1249,13 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
 
     res.json(guide);
   } catch (err) {
-    console.log("🔥 GuideProfile raw error message:", err?.message);
-    console.log(
-      "🔥 GuideProfile raw error full:",
-      util.inspect(err, { showHidden: true, depth: null })
+    process.stdout.write(
+      "🔥 GuideProfile raw error message: " + (err?.message || "none") + "\n"
+    );
+    process.stdout.write(
+      "🔥 GuideProfile raw error full: " +
+        util.inspect(err, { showHidden: true, depth: null }) +
+        "\n"
     );
     res.status(500).json({ message: "Server error" });
   }
