@@ -1183,54 +1183,54 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 🔍 Fetch guide main info + profile photo + rating
-    const guideResult = await connection.query(
-      `SELECT 
-         u.id AS guide_id,
-         u.name,
-         u.surname,
-         u.country,
-         u.region,
-         p.photo_data AS profile_picture,
-         IFNULL(AVG(b.rate), -1) AS average_rating
-       FROM users u
-       LEFT JOIN profile_photos p ON u.id = p.user_id
-       LEFT JOIN bookings b ON u.id = b.guide_id
-       WHERE u.id = ? AND u.role = 'guide'
-       GROUP BY u.id`,
-      [guideId]
-    );
-    console.log("🟢 guideResult:", guideResult); // ← log here
+    // 👤 Main guide query
+    const guideQuery = `
+      SELECT 
+        u.id AS guide_id,
+        u.username,
+        u.name,
+        u.surname,
+        u.country,
+        u.region,
+        p.photo_data AS profile_picture,
+        IFNULL(AVG(b.rate), -1) AS average_rating
+      FROM users u
+      JOIN profile_photos p ON u.id = p.user_id
+      LEFT JOIN bookings b ON u.id = b.guide_id
+      WHERE u.id = ? AND u.role = 'guide'
+      GROUP BY u.id
+    `;
+    const guideResult = await connection.query(guideQuery, [guideId]);
+    console.log("🟢 guideResult:", guideResult);
 
-    const guide = Array.isArray(guideResult) ? guideResult[0] : null;
+    const guide =
+      Array.isArray(guideResult) && guideResult.length > 0
+        ? guideResult[0]
+        : null;
 
     if (!guide) {
       connection.release();
       return res.status(404).json({ message: "Guide not found" });
     }
 
-    // 🔢 Total number of bookings
+    // 🔢 Booking count
     const bookingCountResult = await connection.query(
-      `SELECT COUNT(*) AS total_bookings 
-       FROM bookings 
-       WHERE guide_id = ?`,
+      `SELECT COUNT(*) AS total_bookings FROM bookings WHERE guide_id = ?`,
       [guideId]
     );
-    console.log("🟢 bookingCountResult:", bookingCountResult); // ← log here
+    console.log("🟢 bookingCountResult:", bookingCountResult);
 
-    const totalBookings = Array.isArray(bookingCountResult)
-      ? bookingCountResult[0].total_bookings
-      : 0;
-    guide.total_bookings = totalBookings;
+    guide.total_bookings =
+      Array.isArray(bookingCountResult) && bookingCountResult[0]?.total_bookings
+        ? bookingCountResult[0].total_bookings
+        : 0;
 
-    // 🖼 Fetch all media entries for this guide
+    // 🖼 Media
     const mediaResult = await connection.query(
-      `SELECT id, file_name, file_data 
-       FROM media 
-       WHERE guide_id = ?`,
+      `SELECT id, file_name, file_data FROM media WHERE guide_id = ?`,
       [guideId]
     );
-    console.log("🟢 mediaResult:", mediaResult); // ← log here
+    console.log("🟢 mediaResult:", mediaResult);
 
     guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
@@ -1238,10 +1238,10 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
 
     res.json(guide);
   } catch (err) {
-    console.log("🔥 GuideProfile raw error:", err);
-    console.error(
-      "🔥 GuideProfile Error:",
-      JSON.stringify(err, Object.getOwnPropertyNames(err))
+    const util = require("util");
+    console.log(
+      "🔥 GuideProfile raw error:",
+      util.inspect(err, { showHidden: true, depth: null })
     );
     res.status(500).json({ message: "Server error" });
   }
