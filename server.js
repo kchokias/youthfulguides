@@ -1200,6 +1200,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
        GROUP BY u.id`,
       [guideId]
     );
+    console.log("🟢 guideResult:", guideResult); // ← log here
 
     const guide = Array.isArray(guideResult) ? guideResult[0] : null;
 
@@ -1215,6 +1216,8 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
        WHERE guide_id = ?`,
       [guideId]
     );
+    console.log("🟢 bookingCountResult:", bookingCountResult); // ← log here
+
     const totalBookings = Array.isArray(bookingCountResult)
       ? bookingCountResult[0].total_bookings
       : 0;
@@ -1227,13 +1230,19 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
        WHERE guide_id = ?`,
       [guideId]
     );
+    console.log("🟢 mediaResult:", mediaResult); // ← log here
+
     guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
     connection.release();
 
     res.json(guide);
   } catch (err) {
-    console.error("🔥 GuideProfile Error:", err); // real error
+    console.log("🔥 GuideProfile raw error:", err);
+    console.error(
+      "🔥 GuideProfile Error:",
+      JSON.stringify(err, Object.getOwnPropertyNames(err))
+    );
     res.status(500).json({ message: "Server error" });
   }
 });
