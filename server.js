@@ -1169,6 +1169,71 @@ app.get("/api/Bookings/TotalByGuide/:guide_id", async (req, res) => {
   }
 });
 
+///API for profile preview
+///
+///
+
+app.get("/api/GuideProfile/:id", async (req, res) => {
+  const guideId = req.params.id;
+
+  if (!guideId) {
+    return res.status(400).json({ message: "Missing guide ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 🔍 Basic info & average rating
+    const [guide] = await connection.query(
+      `SELECT 
+         u.id AS guide_id,
+         u.name,
+         u.surname,
+         u.country,
+         u.region,
+         p.photo_data AS profile_picture,
+         IFNULL(AVG(b.rate), -1) AS average_rating
+       FROM users u
+       JOIN profile_photos p ON u.id = p.user_id
+       LEFT JOIN bookings b ON u.id = b.guide_id
+       WHERE u.id = ? AND u.role = 'guide'
+       GROUP BY u.id`,
+      [guideId]
+    );
+
+    if (!guide) {
+      connection.release();
+      return res.status(404).json({ message: "Guide not found" });
+    }
+
+    // 🔢 Booking count
+    const [bookingStats] = await connection.query(
+      `SELECT COUNT(*) AS total_bookings 
+       FROM bookings 
+       WHERE guide_id = ?`,
+      [guideId]
+    );
+    guide.total_bookings = bookingStats.total_bookings || 0;
+
+    // 🖼 Media files
+    const media = await connection.query(
+      `SELECT id, file_name, file_data 
+       FROM media 
+       WHERE guide_id = ?`,
+      [guideId]
+    );
+
+    guide.media = media;
+
+    connection.release();
+
+    res.json(guide);
+  } catch (err) {
+    console.error("🔥 GuideProfile Error:", err.stack || err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
