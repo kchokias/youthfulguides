@@ -110,7 +110,7 @@ pool
   });
 
 // Middleware to parse incoming requests
-app.use(express.json());
+//app.use(express.json()); /// removed just for test because it is dublicate with app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from the "public" directory
