@@ -1269,6 +1269,72 @@ app.get("/api/GuideReviews/:guideId", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+
+///make new booking request
+//
+//
+//
+app.post("/api/Bookings/Request", async (req, res) => {
+  const { guide_id, traveler_id, date } = req.body;
+
+  if (!guide_id || !traveler_id || !date) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1️⃣ Check if guide is marked as available for the requested date
+    const availabilityCheck = await connection.query(
+      `SELECT * FROM guide_availability 
+       WHERE guide_id = ? AND date = ? AND status = 'available'`,
+      [guide_id, date]
+    );
+
+    if (!Array.isArray(availabilityCheck) || availabilityCheck.length === 0) {
+      connection.release();
+      return res
+        .status(409)
+        .json({ message: "Guide is not available on this date" });
+    }
+
+    // 2️⃣ Check if guide already has a booking on this date
+    const bookingConflict = await connection.query(
+      `SELECT * FROM bookings 
+       WHERE guide_id = ? AND date = ? AND status != 'cancelled'`,
+      [guide_id, date]
+    );
+
+    if (Array.isArray(bookingConflict) && bookingConflict.length > 0) {
+      connection.release();
+      return res
+        .status(409)
+        .json({ message: "Guide is already booked on this date" });
+    }
+
+    // 3️⃣ Insert new pending booking
+    const insertQuery = `
+      INSERT INTO bookings (guide_id, traveler_id, date, status, created_at)
+      VALUES (?, ?, ?, 'pending', NOW())
+    `;
+
+    const result = await connection.query(insertQuery, [
+      guide_id,
+      traveler_id,
+      date,
+    ]);
+
+    connection.release();
+
+    res.status(201).json({
+      message: "Booking request created",
+      booking_id: result.insertId,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
+
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
