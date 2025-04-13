@@ -1243,19 +1243,19 @@ app.get("/api/GuideReviews/:guideId", async (req, res) => {
     const connection = await pool.getConnection();
 
     const reviewsQuery = `
-      SELECT 
-        b.traveler_id AS user_id,
-        u.username,
-        b.rate,
-        b.review AS comment,
-        b.created_at
-      FROM bookings b
-      JOIN users u ON b.traveler_id = u.id
-      WHERE b.guide_id = ?
-        AND b.status = 'completed'
-        AND b.rate IS NOT NULL
-      ORDER BY b.created_at DESC
-    `;
+    SELECT 
+      b.traveler_id AS user_id,
+      u.username,
+      b.rate,
+      b.review AS comment,
+      b.date_reviewed AS reviewed_at
+    FROM bookings b
+    JOIN users u ON b.traveler_id = u.id
+    WHERE b.guide_id = ?
+      AND b.status = 'completed'
+      AND b.rate IS NOT NULL
+    ORDER BY b.date_reviewed DESC
+  `;
 
     const reviews = await connection.query(reviewsQuery, [guideId]);
 
