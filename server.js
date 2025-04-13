@@ -1577,11 +1577,9 @@ app.post("/api/Bookings/Cancel", async (req, res) => {
     // 2️⃣ Check if status is 'confirmed'
     if (booking.status !== "confirmed") {
       connection.release();
-      return res
-        .status(400)
-        .json({
-          message: "Only confirmed bookings can be cancelled by the guide",
-        });
+      return res.status(400).json({
+        message: "Only confirmed bookings can be cancelled by the guide",
+      });
     }
 
     const { guide_id, booked_date } = booking;
