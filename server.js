@@ -1276,12 +1276,14 @@ app.get("/api/GuideReviews/:guideId", async (req, res) => {
 //
 app.post("/api/Bookings/Request", async (req, res) => {
   const { guide_id, traveler_id, date } = req.body;
+
+  // ✅ Debug log (optional)
   console.log("📥 Booking request body:", req.body);
 
   if (!guide_id || !traveler_id || !date) {
     return res.status(400).json({
       message: "Missing required fields",
-      received: req.body, // 👈 show what was received
+      received: req.body,
     });
   }
 
@@ -1305,7 +1307,7 @@ app.post("/api/Bookings/Request", async (req, res) => {
     // 2️⃣ Check if guide already has a booking on this date
     const bookingConflict = await connection.query(
       `SELECT * FROM bookings 
-       WHERE guide_id = ? AND date = ? AND status != 'cancelled'`,
+       WHERE guide_id = ? AND booked_date = ? AND status != 'cancelled'`,
       [guide_id, date]
     );
 
@@ -1318,7 +1320,7 @@ app.post("/api/Bookings/Request", async (req, res) => {
 
     // 3️⃣ Insert new pending booking
     const insertQuery = `
-      INSERT INTO bookings (guide_id, traveler_id, date, status, created_at)
+      INSERT INTO bookings (guide_id, traveler_id, booked_date, status, created_at)
       VALUES (?, ?, ?, 'pending', NOW())
     `;
 
