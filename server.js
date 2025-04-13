@@ -1192,6 +1192,7 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
         u.surname,
         u.country,
         u.region,
+        u.description,
         p.photo_data AS profile_picture,
         IFNULL(AVG(b.rate), -1) AS average_rating
       FROM users u
@@ -1226,6 +1227,44 @@ app.get("/api/GuideProfile/:id", async (req, res) => {
     guide.media = Array.isArray(mediaResult) ? mediaResult : [];
 
     res.json(guide);
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
+
+app.get("/api/GuideReviews/:guideId", async (req, res) => {
+  const guideId = req.params.guideId;
+
+  if (!guideId) {
+    return res.status(400).json({ message: "Missing guide ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    const reviewsQuery = `
+      SELECT 
+        b.user_id,
+        u.username,
+        b.rate,
+        b.comment,
+        b.created_at
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      WHERE b.guide_id = ?
+        AND b.status = 'completed'
+        AND b.rate IS NOT NULL
+      ORDER BY b.created_at DESC
+    `;
+
+    const reviews = await connection.query(reviewsQuery, [guideId]);
+
+    connection.release();
+
+    res.json({
+      guide_id: guideId,
+      reviews: reviews,
+    });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
