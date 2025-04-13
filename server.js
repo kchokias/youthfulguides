@@ -1244,13 +1244,13 @@ app.get("/api/GuideReviews/:guideId", async (req, res) => {
 
     const reviewsQuery = `
       SELECT 
-        b.user_id,
+        b.traveler_id AS user_id,
         u.username,
         b.rate,
-        b.comment,
+        b.review AS comment,
         b.created_at
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
+      JOIN users u ON b.traveler_id = u.id
       WHERE b.guide_id = ?
         AND b.status = 'completed'
         AND b.rate IS NOT NULL
