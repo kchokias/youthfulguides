@@ -1427,7 +1427,8 @@ app.get("/api/GuideBookings", async (req, res) => {
     }
 
     const query = `
-      SELECT 
+      SELECT
+        b.id AS booking_id, 
         u.username,
         u.name,
         u.surname,
@@ -1459,7 +1460,53 @@ app.get("/api/GuideBookings", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+///accept booking
+app.post("/api/Bookings/Accept", async (req, res) => {
+  const { booking_id } = req.body;
 
+  if (!booking_id) {
+    return res.status(400).json({ message: "Missing booking ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1️⃣ Fetch guide_id and booked_date for this booking
+    const [booking] = await connection.query(
+      "SELECT guide_id, booked_date FROM bookings WHERE id = ?",
+      [booking_id]
+    );
+
+    if (!booking) {
+      connection.release();
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    const { guide_id, booked_date } = booking;
+
+    // 2️⃣ Update booking status to 'confirmed'
+    await connection.query(
+      "UPDATE bookings SET status = 'confirmed' WHERE id = ?",
+      [booking_id]
+    );
+
+    // 3️⃣ Update guide_availability status to 'booked' for that day
+    await connection.query(
+      `UPDATE guide_availability 
+       SET status = 'booked' 
+       WHERE guide_id = ? AND date = ?`,
+      [guide_id, booked_date]
+    );
+
+    connection.release();
+
+    res
+      .status(200)
+      .json({ message: "Booking confirmed and availability updated" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
