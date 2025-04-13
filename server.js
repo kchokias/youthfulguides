@@ -1552,6 +1552,63 @@ app.post("/api/Bookings/Decline", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+//guide cancel a booking
+app.post("/api/Bookings/Cancel", async (req, res) => {
+  const { booking_id } = req.body;
+
+  if (!booking_id) {
+    return res.status(400).json({ message: "Missing booking ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1️⃣ Get current status, date, and guide_id
+    const [booking] = await connection.query(
+      "SELECT status, guide_id, booked_date FROM bookings WHERE id = ?",
+      [booking_id]
+    );
+
+    if (!booking) {
+      connection.release();
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    // 2️⃣ Check if status is 'confirmed'
+    if (booking.status !== "confirmed") {
+      connection.release();
+      return res
+        .status(400)
+        .json({
+          message: "Only confirmed bookings can be cancelled by the guide",
+        });
+    }
+
+    const { guide_id, booked_date } = booking;
+
+    // 3️⃣ Update booking to 'cancelled'
+    await connection.query(
+      "UPDATE bookings SET status = 'cancelled' WHERE id = ?",
+      [booking_id]
+    );
+
+    // 4️⃣ Update availability to 'available' again
+    await connection.query(
+      `UPDATE guide_availability 
+       SET status = 'available' 
+       WHERE guide_id = ? AND date = ?`,
+      [guide_id, booked_date]
+    );
+
+    connection.release();
+
+    res
+      .status(200)
+      .json({ message: "Booking cancelled and availability restored" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
 
 //forgot password APIs
 
