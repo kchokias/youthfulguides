@@ -1507,6 +1507,52 @@ app.post("/api/Bookings/Accept", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+
+//decline a booking from guide.
+app.post("/api/Bookings/Decline", async (req, res) => {
+  const { booking_id } = req.body;
+
+  if (!booking_id) {
+    return res.status(400).json({ message: "Missing booking ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1️⃣ Verify booking exists and is still pending
+    const [booking] = await connection.query(
+      "SELECT status FROM bookings WHERE id = ?",
+      [booking_id]
+    );
+
+    if (!booking) {
+      connection.release();
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (booking.status !== "pending") {
+      connection.release();
+      return res
+        .status(400)
+        .json({ message: "Only pending bookings can be declined" });
+    }
+
+    // 2️⃣ Update status to 'cancelled'
+    await connection.query(
+      "UPDATE bookings SET status = 'cancelled' WHERE id = ?",
+      [booking_id]
+    );
+
+    connection.release();
+
+    res
+      .status(200)
+      .json({ message: "Booking declined and marked as cancelled" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
+
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
