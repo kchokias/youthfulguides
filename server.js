@@ -1384,6 +1384,81 @@ app.post("/api/Bookings/Request", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+//guidebookings
+app.get("/api/GuideBookings", async (req, res) => {
+  const { guide_id, start_date, end_date, upcoming, pending, completed } =
+    req.query;
+
+  if (!guide_id) {
+    return res.status(400).json({ message: "Missing guide ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+    const filters = [`b.guide_id = ?`];
+    const params = [guide_id];
+
+    // 📆 Date range filter
+    if (start_date && end_date) {
+      if (
+        !moment(start_date, "DD.MM.YYYY", true).isValid() ||
+        !moment(end_date, "DD.MM.YYYY", true).isValid()
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Invalid date format. Use DD.MM.YYYY" });
+      }
+
+      const start = moment(start_date, "DD.MM.YYYY").format("YYYY-MM-DD");
+      const end = moment(end_date, "DD.MM.YYYY").format("YYYY-MM-DD");
+
+      filters.push(`b.booked_date BETWEEN ? AND ?`);
+      params.push(start, end);
+    }
+
+    // 📌 Status filter
+    const statusConditions = [];
+    if (pending === "true") statusConditions.push(`b.status = 'pending'`);
+    if (completed === "true") statusConditions.push(`b.status = 'completed'`);
+    if (upcoming === "true") statusConditions.push(`b.booked_date > CURDATE()`);
+
+    if (statusConditions.length > 0) {
+      filters.push(`(` + statusConditions.join(" OR ") + `)`);
+    }
+
+    const query = `
+      SELECT 
+        u.username,
+        u.name,
+        u.surname,
+        u.email,
+        p.photo_data AS profile_picture,
+        b.booked_date,
+        b.status,
+        b.rate,
+        b.review
+      FROM bookings b
+      JOIN users u ON b.traveler_id = u.id
+      LEFT JOIN profile_photos p ON u.id = p.user_id
+      WHERE ${filters.join(" AND ")}
+      ORDER BY b.booked_date ASC
+    `;
+
+    const results = await connection.query(query, params);
+
+    connection.release();
+
+    // 🧼 Format date to DD.MM.YYYY
+    const bookings = results.map((b) => ({
+      ...b,
+      booked_date: moment(b.booked_date).format("DD.MM.YYYY"),
+    }));
+
+    res.json(bookings);
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
 
 //forgot password APIs
 
