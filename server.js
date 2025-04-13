@@ -1276,9 +1276,13 @@ app.get("/api/GuideReviews/:guideId", async (req, res) => {
 //
 app.post("/api/Bookings/Request", async (req, res) => {
   const { guide_id, traveler_id, date } = req.body;
+  console.log("📥 Booking request body:", req.body);
 
   if (!guide_id || !traveler_id || !date) {
-    return res.status(400).json({ message: "Missing required fields" });
+    return res.status(400).json({
+      message: "Missing required fields",
+      received: req.body, // 👈 show what was received
+    });
   }
 
   try {
