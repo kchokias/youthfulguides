@@ -1277,9 +1277,6 @@ app.get("/api/GuideReviews/:guideId", async (req, res) => {
 app.post("/api/Bookings/Request", async (req, res) => {
   const { guide_id, traveler_id, date } = req.body;
 
-  // ✅ Debug log (optional)
-  console.log("📥 Booking request body:", req.body);
-
   if (!guide_id || !traveler_id || !date) {
     return res.status(400).json({
       message: "Missing required fields",
@@ -1290,7 +1287,7 @@ app.post("/api/Bookings/Request", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // 1️⃣ Check if guide is marked as available for the requested date
+    // 1️⃣ Check guide availability
     const availabilityCheck = await connection.query(
       `SELECT * FROM guide_availability 
        WHERE guide_id = ? AND date = ? AND status = 'available'`,
@@ -1304,7 +1301,7 @@ app.post("/api/Bookings/Request", async (req, res) => {
         .json({ message: "Guide is not available on this date" });
     }
 
-    // 2️⃣ Check if guide already has a booking on this date
+    // 2️⃣ Check for booking conflicts
     const bookingConflict = await connection.query(
       `SELECT * FROM bookings 
        WHERE guide_id = ? AND booked_date = ? AND status != 'cancelled'`,
@@ -1318,17 +1315,52 @@ app.post("/api/Bookings/Request", async (req, res) => {
         .json({ message: "Guide is already booked on this date" });
     }
 
-    // 3️⃣ Insert new pending booking
+    // 3️⃣ Insert new booking
     const insertQuery = `
       INSERT INTO bookings (guide_id, traveler_id, booked_date, status, created_at)
       VALUES (?, ?, ?, 'pending', NOW())
     `;
-
     const result = await connection.query(insertQuery, [
       guide_id,
       traveler_id,
       date,
     ]);
+
+    // 4️⃣ Send email to the guide
+    const [guideInfo] = await connection.query(
+      "SELECT email, name FROM users WHERE id = ?",
+      [guide_id]
+    );
+
+    const [travelerInfo] = await connection.query(
+      "SELECT username FROM users WHERE id = ?",
+      [traveler_id]
+    );
+
+    if (guideInfo && travelerInfo) {
+      const mailOptions = {
+        from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+        to: guideInfo.email,
+        subject: "New Booking Request Received",
+        html: `
+          <p>Hello ${guideInfo.name},</p>
+          <p>You have received a new booking request for <strong>${date}</strong> from traveler <strong>${travelerInfo.username}</strong>.</p>
+          <p>Please log in to your account to confirm or decline the request.</p>
+          <br/>
+          <p>— Youthful Guides Team</p>
+        `,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log("📧 Booking notification sent to guide:", guideInfo.email);
+      } catch (mailErr) {
+        console.error(
+          "❌ Failed to send booking notification:",
+          mailErr.message
+        );
+      }
+    }
 
     connection.release();
 
