@@ -1284,6 +1284,16 @@ app.post("/api/Bookings/Request", async (req, res) => {
     });
   }
 
+  // ✅ Validate and convert DD.MM.YYYY ➜ YYYY-MM-DD
+  const isValidFormat = moment(date, "DD.MM.YYYY", true).isValid();
+  if (!isValidFormat) {
+    return res.status(400).json({
+      message: "Invalid date format. Expected DD.MM.YYYY",
+    });
+  }
+
+  const parsedDate = moment(date, "DD.MM.YYYY").format("YYYY-MM-DD");
+
   try {
     const connection = await pool.getConnection();
 
@@ -1291,7 +1301,7 @@ app.post("/api/Bookings/Request", async (req, res) => {
     const availabilityCheck = await connection.query(
       `SELECT * FROM guide_availability 
        WHERE guide_id = ? AND date = ? AND status = 'available'`,
-      [guide_id, date]
+      [guide_id, parsedDate]
     );
 
     if (!Array.isArray(availabilityCheck) || availabilityCheck.length === 0) {
@@ -1305,7 +1315,7 @@ app.post("/api/Bookings/Request", async (req, res) => {
     const bookingConflict = await connection.query(
       `SELECT * FROM bookings 
        WHERE guide_id = ? AND booked_date = ? AND status != 'cancelled'`,
-      [guide_id, date]
+      [guide_id, parsedDate]
     );
 
     if (Array.isArray(bookingConflict) && bookingConflict.length > 0) {
@@ -1323,10 +1333,10 @@ app.post("/api/Bookings/Request", async (req, res) => {
     const result = await connection.query(insertQuery, [
       guide_id,
       traveler_id,
-      date,
+      parsedDate,
     ]);
 
-    // 4️⃣ Send email to the guide
+    // 4️⃣ Email the guide
     const [guideInfo] = await connection.query(
       "SELECT email, name FROM users WHERE id = ?",
       [guide_id]
@@ -1338,13 +1348,15 @@ app.post("/api/Bookings/Request", async (req, res) => {
     );
 
     if (guideInfo && travelerInfo) {
+      const formattedDate = moment(parsedDate).format("DD.MM.YYYY");
+
       const mailOptions = {
         from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
         to: guideInfo.email,
         subject: "New Booking Request Received",
         html: `
           <p>Hello ${guideInfo.name},</p>
-          <p>You have received a new booking request for <strong>${date}</strong> from traveler <strong>${travelerInfo.username}</strong>.</p>
+          <p>You have received a new booking request for <strong>${formattedDate}</strong> from traveler <strong>${travelerInfo.username}</strong>.</p>
           <p>Please log in to your account to confirm or decline the request.</p>
           <br/>
           <p>— Youthful Guides Team</p>
