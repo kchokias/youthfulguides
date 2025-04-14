@@ -1386,7 +1386,7 @@ app.post("/api/Bookings/Request", async (req, res) => {
 });
 //guidebookings
 app.get("/api/GuideBookings", async (req, res) => {
-  const { guide_id, start_date, end_date, upcoming, pending, completed } =
+  const { guide_id, start_date, end_date, pending, confirmed, completed } =
     req.query;
 
   if (!guide_id) {
@@ -1416,19 +1416,19 @@ app.get("/api/GuideBookings", async (req, res) => {
       params.push(start, end);
     }
 
-    // 📌 Status filter
+    // 📌 Status filters (multiple supported)
     const statusConditions = [];
     if (pending === "true") statusConditions.push(`b.status = 'pending'`);
+    if (confirmed === "true") statusConditions.push(`b.status = 'confirmed'`);
     if (completed === "true") statusConditions.push(`b.status = 'completed'`);
-    if (upcoming === "true") statusConditions.push(`b.booked_date > CURDATE()`);
 
     if (statusConditions.length > 0) {
       filters.push(`(` + statusConditions.join(" OR ") + `)`);
     }
 
     const query = `
-      SELECT
-        b.id AS booking_id, 
+      SELECT 
+        b.id AS booking_id,
         u.username,
         u.name,
         u.surname,
@@ -1449,7 +1449,6 @@ app.get("/api/GuideBookings", async (req, res) => {
 
     connection.release();
 
-    // 🧼 Format date to DD.MM.YYYY
     const bookings = results.map((b) => ({
       ...b,
       booked_date: moment(b.booked_date).format("DD.MM.YYYY"),
@@ -1460,7 +1459,9 @@ app.get("/api/GuideBookings", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+///
 ///accept booking
+///
 app.post("/api/Bookings/Accept", async (req, res) => {
   const { booking_id } = req.body;
 
@@ -1553,6 +1554,7 @@ app.post("/api/Bookings/Decline", async (req, res) => {
   }
 });
 //guide cancel a booking
+
 app.post("/api/Bookings/Cancel", async (req, res) => {
   const { booking_id } = req.body;
 
