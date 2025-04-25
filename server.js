@@ -1654,7 +1654,7 @@ app.get("/api/TravelerBookings", async (req, res) => {
     const query = `
       SELECT 
         b.id AS booking_id,
-        b.guide_id
+        b.guide_id,
         u.username,
         u.name,
         u.surname,
