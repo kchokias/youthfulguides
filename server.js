@@ -1645,7 +1645,8 @@ app.get("/api/TravelerBookings", async (req, res) => {
     const statusConditions = [];
     if (pending === "true") statusConditions.push(`b.status = 'pending'`);
     if (confirmed === "true") statusConditions.push(`b.status = 'confirmed'`);
-    if (completed === "true") statusConditions.push(`b.status = 'completed'`);
+    if (completed === "true")
+      statusConditions.push(`b.status = 'completed' OR b.status = 'reviewed'`);
 
     if (statusConditions.length > 0) {
       filters.push(`(` + statusConditions.join(" OR ") + `)`);
