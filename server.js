@@ -1779,7 +1779,7 @@ app.post("/api/Traveler/CancelBooking", async (req, res) => {
 });
 //review a booking from the traveler
 app.post("/api/Traveler/LeaveReview", async (req, res) => {
-  const { booking_id, traveler_id, rate, comment } = req.body;
+  const { booking_id, traveler_id, rate, review } = req.body;
 
   if (!booking_id || !traveler_id || !rate) {
     return res.status(400).json({ message: "Missing required fields" });
@@ -1816,9 +1816,9 @@ app.post("/api/Traveler/LeaveReview", async (req, res) => {
     // 2️⃣ Update booking with review
     await connection.query(
       `UPDATE bookings 
-       SET rate = ?, comment = ?, date_reviewed = NOW(), status = 'reviewed'
+       SET rate = ?, review = ?, date_reviewed = NOW(), status = 'reviewed'
        WHERE id = ?`,
-      [rate, comment || null, booking_id]
+      [rate, review || null, booking_id]
     );
 
     connection.release();
