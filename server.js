@@ -1719,11 +1719,9 @@ app.post("/api/Traveler/CancelBooking", async (req, res) => {
 
     if (!["pending", "confirmed"].includes(booking.status)) {
       connection.release();
-      return res
-        .status(400)
-        .json({
-          message: "Only pending or confirmed bookings can be cancelled",
-        });
+      return res.status(400).json({
+        message: "Only pending or confirmed bookings can be cancelled",
+      });
     }
 
     const {
@@ -1779,6 +1777,58 @@ app.post("/api/Traveler/CancelBooking", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+//review a booking from the traveler
+app.post("/api/Traveler/LeaveReview", async (req, res) => {
+  const { booking_id, traveler_id, rate, comment } = req.body;
+
+  if (!booking_id || !traveler_id || !rate) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  if (rate < 1 || rate > 5) {
+    return res.status(400).json({ message: "Rate must be between 1 and 5" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1️⃣ Check booking exists, belongs to traveler, and is completed
+    const [booking] = await connection.query(
+      `SELECT status FROM bookings 
+       WHERE id = ? AND traveler_id = ?`,
+      [booking_id, traveler_id]
+    );
+
+    if (!booking) {
+      connection.release();
+      return res
+        .status(404)
+        .json({ message: "Booking not found or access denied" });
+    }
+
+    if (booking.status !== "completed") {
+      connection.release();
+      return res
+        .status(400)
+        .json({ message: "Only completed bookings can be reviewed" });
+    }
+
+    // 2️⃣ Update booking with review
+    await connection.query(
+      `UPDATE bookings 
+       SET rate = ?, comment = ?, date_reviewed = NOW(), status = 'reviewed'
+       WHERE id = ?`,
+      [rate, comment || null, booking_id]
+    );
+
+    connection.release();
+
+    res.status(200).json({ message: "Review submitted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
+
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
