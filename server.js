@@ -1609,7 +1609,81 @@ app.post("/api/Bookings/Cancel", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+// traveler My bookings
+app.get("/api/TravelerBookings", async (req, res) => {
+  const { traveler_id, start_date, end_date, pending, confirmed, completed } =
+    req.query;
 
+  if (!traveler_id) {
+    return res.status(400).json({ message: "Missing traveler ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+    const filters = [`b.traveler_id = ?`];
+    const params = [traveler_id];
+
+    // 📆 Date range filter
+    if (start_date && end_date) {
+      if (
+        !moment(start_date, "DD.MM.YYYY", true).isValid() ||
+        !moment(end_date, "DD.MM.YYYY", true).isValid()
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Invalid date format. Use DD.MM.YYYY" });
+      }
+
+      const start = moment(start_date, "DD.MM.YYYY").format("YYYY-MM-DD");
+      const end = moment(end_date, "DD.MM.YYYY").format("YYYY-MM-DD");
+
+      filters.push(`b.booked_date BETWEEN ? AND ?`);
+      params.push(start, end);
+    }
+
+    // 📌 Status filters
+    const statusConditions = [];
+    if (pending === "true") statusConditions.push(`b.status = 'pending'`);
+    if (confirmed === "true") statusConditions.push(`b.status = 'confirmed'`);
+    if (completed === "true") statusConditions.push(`b.status = 'completed'`);
+
+    if (statusConditions.length > 0) {
+      filters.push(`(` + statusConditions.join(" OR ") + `)`);
+    }
+
+    const query = `
+      SELECT 
+        b.id AS booking_id,
+        u.username,
+        u.name,
+        u.surname,
+        u.email,
+        p.photo_data AS profile_picture,
+        b.booked_date,
+        b.status,
+        b.rate,
+        b.review
+      FROM bookings b
+      JOIN users u ON b.guide_id = u.id
+      LEFT JOIN profile_photos p ON u.id = p.user_id
+      WHERE ${filters.join(" AND ")}
+      ORDER BY b.booked_date ASC
+    `;
+
+    const results = await connection.query(query, params);
+
+    connection.release();
+
+    const bookings = results.map((b) => ({
+      ...b,
+      booked_date: moment(b.booked_date).format("DD.MM.YYYY"),
+    }));
+
+    res.json(bookings);
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
