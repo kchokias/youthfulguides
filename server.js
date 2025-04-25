@@ -1686,6 +1686,99 @@ app.get("/api/TravelerBookings", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+
+//cancel a booking from the traveler
+app.post("/api/Traveler/CancelBooking", async (req, res) => {
+  const { booking_id, traveler_id } = req.body;
+
+  if (!booking_id || !traveler_id) {
+    return res
+      .status(400)
+      .json({ message: "Missing booking ID or traveler ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // 1️⃣ Fetch booking details
+    const [booking] = await connection.query(
+      `SELECT b.status, b.guide_id, b.booked_date, t.username AS traveler_username, g.name AS guide_name, g.email AS guide_email
+       FROM bookings b
+       JOIN users t ON b.traveler_id = t.id
+       JOIN users g ON b.guide_id = g.id
+       WHERE b.id = ? AND b.traveler_id = ?`,
+      [booking_id, traveler_id]
+    );
+
+    if (!booking) {
+      connection.release();
+      return res
+        .status(404)
+        .json({ message: "Booking not found or access denied" });
+    }
+
+    if (!["pending", "confirmed"].includes(booking.status)) {
+      connection.release();
+      return res
+        .status(400)
+        .json({
+          message: "Only pending or confirmed bookings can be cancelled",
+        });
+    }
+
+    const {
+      guide_id,
+      booked_date,
+      traveler_username,
+      guide_name,
+      guide_email,
+    } = booking;
+
+    // 2️⃣ Update booking to 'cancelled'
+    await connection.query(
+      "UPDATE bookings SET status = 'cancelled' WHERE id = ?",
+      [booking_id]
+    );
+
+    // 3️⃣ If status was confirmed, also update guide_availability
+    if (booking.status === "confirmed") {
+      await connection.query(
+        `UPDATE guide_availability
+         SET status = 'available'
+         WHERE guide_id = ? AND date = ?`,
+        [guide_id, booked_date]
+      );
+    }
+
+    // 4️⃣ Send email notification to the guide
+    const formattedDate = moment(booked_date).format("DD.MM.YYYY");
+    const mailOptions = {
+      from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+      to: guide_email,
+      subject: "Booking Cancelled by Traveler",
+      html: `
+        <p>Hello ${guide_name},</p>
+        <p>The traveler <strong>${traveler_username}</strong> has cancelled their booking for <strong>${formattedDate}</strong>.</p>
+        <p>You are now available for new bookings on that date (if it was confirmed).</p>
+        <br/>
+        <p>— Youthful Guides Team</p>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log("📧 Cancellation email sent to guide:", guide_email);
+    } catch (mailErr) {
+      console.error("❌ Failed to send cancellation email:", mailErr.message);
+    }
+
+    connection.release();
+
+    res.status(200).json({ message: "Booking cancelled and guide notified" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
 //forgot password APIs
 
 app.post("/api/User/ForgotPassword", async (req, res) => {
