@@ -14,3 +14,9 @@ FROM (
 ) AS t;
 
 --this is to make unavailable a user for all the year in sql
+
+
+
+
+no-reply@youthfulguides.app
+8z~07Oc0r
