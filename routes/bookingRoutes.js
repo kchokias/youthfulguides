@@ -243,11 +243,9 @@ router.post("/Traveler/CancelBooking", async (req, res) => {
 
     if (!["pending", "confirmed"].includes(booking.status)) {
       connection.release();
-      return res
-        .status(400)
-        .json({
-          message: "Only pending or confirmed bookings can be cancelled",
-        });
+      return res.status(400).json({
+        message: "Only pending or confirmed bookings can be cancelled",
+      });
     }
 
     const { guide_id, booked_date } = booking;
@@ -469,3 +467,5 @@ router.get("/GuideBookings", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+
+module.exports = router;
