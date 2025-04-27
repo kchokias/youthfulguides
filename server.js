@@ -12,6 +12,7 @@ const bookingRoutes = require("./routes/bookingRoutes");
 const availabilityRoutes = require("./routes/availabilityRoutes");
 const mediaRoutes = require("./routes/mediaRoutes");
 const generalRoutes = require("./routes/generalRoutes");
+const availableGuidesRoutes = require("./routes/availableGuidesRoutes");
 
 const app = express();
 
@@ -40,6 +41,8 @@ app.use("/api/User", userRoutes);
 app.use("/api/Bookings", bookingRoutes);
 app.use("/api/Availability", availabilityRoutes);
 app.use("/api/Guide", mediaRoutes);
+app.use("/api/AvailableGuides", availableGuidesRoutes);
+
 app.use("/", generalRoutes);
 
 // Catch-all for 404
