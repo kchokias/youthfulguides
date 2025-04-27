@@ -38,7 +38,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/api/User", userRoutes);
-app.use("/api/Bookings", bookingRoutes);
+app.use("/api", bookingRoutes);
 app.use("/api/Availability", availabilityRoutes);
 app.use("/api/Guide", mediaRoutes);
 app.use("/api/AvailableGuides", availableGuidesRoutes);
