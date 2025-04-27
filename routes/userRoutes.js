@@ -12,7 +12,6 @@ const router = express.Router();
 // Login
 router.post("/Login", async (req, res) => {
   const { email, password } = req.body;
-
   try {
     const connection = await pool.getConnection();
     const user = await connection.query(
@@ -60,11 +59,22 @@ router.post("/Login", async (req, res) => {
   }
 });
 
+// Get User ID from Token
+router.get("/GetUserIdFromToken", authenticateToken, (req, res) => {
+  try {
+    const { userId } = req.user;
+    res.json({ success: true, userId });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to retrieve user ID" });
+  }
+});
+
 // Create New User
 router.post("/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
-
   if (!name || !surname || !username || !email || !password || !role) {
     return res
       .status(400)
@@ -120,11 +130,13 @@ router.post("/CreateNewUser", async (req, res) => {
         .status(409)
         .json({ success: false, message: "Email already exists" });
     }
-    res.status(500).json({
-      success: false,
-      message: "Failed to create user",
-      error: err.message,
-    });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to create user",
+        error: err.message,
+      });
   } finally {
     connection.release();
   }
@@ -134,7 +146,6 @@ router.post("/CreateNewUser", async (req, res) => {
 router.put("/UpdateUser/:id", async (req, res) => {
   const userId = req.params.id;
   const { name, surname, password, region, country } = req.body;
-
   try {
     const connection = await pool.getConnection();
 
@@ -256,11 +267,11 @@ router.post("/ForgotPassword", async (req, res) => {
       to: email,
       subject: "Reset Your Password",
       html: `
-          <h3>Hello</h3>
-          <p>We received a request to reset your password.</p>
-          <p><a href="${resetLink}">Click here to reset it</a></p>
-          <p>If you didn’t request this, just ignore this email.</p>
-        `,
+        <h3>Hello</h3>
+        <p>We received a request to reset your password.</p>
+        <p><a href="${resetLink}">Click here to reset it</a></p>
+        <p>If you didn’t request this, just ignore this email.</p>
+      `,
     };
 
     await transporter.sendMail(mailOptions);
