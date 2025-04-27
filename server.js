@@ -13,6 +13,7 @@ const availabilityRoutes = require("./routes/availabilityRoutes");
 const mediaRoutes = require("./routes/mediaRoutes");
 const generalRoutes = require("./routes/generalRoutes");
 const availableGuidesRoutes = require("./routes/availableGuidesRoutes");
+const guideProfileRoutes = require("./routes/guideProfileRoutes");
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use("/api", bookingRoutes);
 app.use("/api/Availability", availabilityRoutes);
 app.use("/api/Guide", mediaRoutes);
 app.use("/api/AvailableGuides", availableGuidesRoutes);
+app.use("/api", guideProfileRoutes);
 
 app.use("/", generalRoutes);
 
