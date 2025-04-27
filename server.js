@@ -2,11 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const path = require("path");
-const fs = require("fs");
+require("dotenv").config();
+
 const { pool } = require("./config/db");
-const { transporter } = require("./config/mailer");
 require("./config/logger");
-const { authenticateToken } = require("./middlewares/authMiddleware");
 
 const userRoutes = require("./routes/userRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
@@ -43,13 +42,13 @@ app.use("/api/Availability", availabilityRoutes);
 app.use("/api/Guide", mediaRoutes);
 app.use("/", generalRoutes);
 
-app.get("/favicon.ico", (req, res) => res.status(204).end());
-
+// Catch-all for 404
 app.use((req, res, next) => {
   console.log(`404 Error - Requested URL: ${req.originalUrl}`);
   res.status(404).send("Sorry, the requested resource was not found.");
 });
 
+// Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send("Something went wrong. Please try again later.");
