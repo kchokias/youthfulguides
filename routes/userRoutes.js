@@ -130,15 +130,38 @@ router.post("/CreateNewUser", async (req, res) => {
         .status(409)
         .json({ success: false, message: "Email already exists" });
     }
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to create user",
-        error: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to create user",
+      error: err.message,
+    });
   } finally {
     connection.release();
+  }
+});
+// Get User By User ID
+router.get("/GetUserByUserId/:id", async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const connection = await pool.getConnection();
+    const user = await connection.query(
+      `SELECT id, name, surname, username, email, role, region, country, created_at 
+       FROM users WHERE id = ?`,
+      [userId]
+    );
+    connection.release();
+
+    if (user.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    res.json({ success: true, data: user[0] });
+  } catch (err) {
+    console.error(`Error fetching user with ID: ${userId}`, err);
+    res.status(500).json({ success: false, message: "Failed to fetch user" });
   }
 });
 
