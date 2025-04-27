@@ -14,6 +14,7 @@ const mediaRoutes = require("./routes/mediaRoutes");
 const generalRoutes = require("./routes/generalRoutes");
 const availableGuidesRoutes = require("./routes/availableGuidesRoutes");
 const guideProfileRoutes = require("./routes/guideProfileRoutes");
+const guideReviewsRoutes = require("./routes/guideReviewsRoutes");
 
 const app = express();
 
@@ -44,7 +45,7 @@ app.use("/api/Availability", availabilityRoutes);
 app.use("/api/Guide", mediaRoutes);
 app.use("/api/AvailableGuides", availableGuidesRoutes);
 app.use("/api", guideProfileRoutes);
-
+app.use("/api", guideReviewsRoutes);
 app.use("/", generalRoutes);
 
 // Catch-all for 404
