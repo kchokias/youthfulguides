@@ -284,7 +284,7 @@ router.post("/ForgotPassword", async (req, res) => {
     );
     connection.release();
 
-    const resetLink = `https://youthfulguides.app/reset-password/${token}`;
+    const resetLink = `https://youthfulguides.app/#/reset-password/${token}`;
     const mailOptions = {
       from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
       to: email,
