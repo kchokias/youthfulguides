@@ -69,32 +69,47 @@ router.post("/Login", async (req, res) => {
 });
 
 // Create New User
+// Create New User
 router.post("/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
-  const errorCodes = [];
 
-  const nameRegex = /^[A-Za-z]+$/;
-  const surnameRegex = /^[A-Za-z]+$/;
-  const usernameRegex = /^[A-Za-z0-9._-]+$/;
-  const passwordRegex = /^[\x20-\x7E]{1,20}$/; // ASCII characters, max 20
+  const errors = [];
 
-  if (!nameRegex.test(name)) errorCodes.push(1); // Name must be English only
-  if (!surnameRegex.test(surname)) errorCodes.push(2); // Surname must be English only
-  if (!usernameRegex.test(username)) errorCodes.push(3); // Username: English, numbers, symbols
-  if (!passwordRegex.test(password)) errorCodes.push(5); // Password rule
+  // Validation rules
+  const englishRegex = /^[A-Za-z]+$/;
+  const usernameRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/;
+  const passwordRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/;
+
+  if (!name || !englishRegex.test(name)) errors.push(1);
+  if (!surname || !englishRegex.test(surname)) errors.push(2);
+  if (!username || !usernameRegex.test(username)) errors.push(3);
+  if (!password) {
+    errors.push(5); // invalid chars by default if missing
+  } else {
+    if (!passwordRegex.test(password)) errors.push(5);
+    if (password.length < 5 || password.length > 20) errors.push(6);
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      errorCodes: errors,
+    });
+  }
 
   const connection = await pool.getConnection();
   try {
-    const existingEmail = await connection.query(
+    // Check if email already exists
+    const [existing] = await connection.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
     );
-    if (existingEmail.length > 0) errorCodes.push(4); // Email already in use
-
-    if (errorCodes.length > 0) {
-      connection.release();
-      return res.status(400).json({ success: false, errorCodes });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        errorCodes: [4], // Email already exists
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -117,19 +132,20 @@ router.post("/CreateNewUser", async (req, res) => {
 
     const newUserId = result.insertId;
 
+    // If guide, populate guide_availability
     if (role.toLowerCase() === "guide") {
       const values = [];
       let date = moment("2025-01-01");
+
       while (date.isSameOrBefore("2025-12-31")) {
         values.push([newUserId, date.format("YYYY-MM-DD"), "unavailable"]);
         date.add(1, "day");
       }
+
       const placeholders = values.map(() => "(?, ?, ?)").join(", ");
       const flatValues = values.flat();
-      await connection.query(
-        `INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ${placeholders}`,
-        flatValues
-      );
+      const sql = `INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ${placeholders}`;
+      await connection.query(sql, flatValues);
     }
 
     res.status(201).json({
@@ -318,23 +334,32 @@ router.post("/ForgotPassword", async (req, res) => {
 });
 
 // Reset Password
+// Reset Password
 router.post("/ResetPassword", async (req, res) => {
   const { token, newPassword } = req.body;
 
-  // Password validation: English letters, numbers, symbols, max 20 characters
-  const passwordRegex = /^[\x20-\x7E]{1,20}$/;
-  const errorCodes = [];
+  const passwordRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/;
+  const errors = [];
 
-  if (!token || !newPassword) {
+  if (!newPassword) {
+    errors.push(5); // invalid chars by default if missing
+  } else {
+    if (!passwordRegex.test(newPassword)) errors.push(5);
+    if (newPassword.length < 5 || newPassword.length > 20) errors.push(6);
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      errorCodes: errors,
+    });
+  }
+
+  if (!token) {
     return res.status(400).json({
       success: false,
       message: "Token and new password are required",
     });
-  }
-
-  if (!passwordRegex.test(newPassword)) {
-    errorCodes.push(5); // Invalid password
-    return res.status(400).json({ success: false, errorCodes });
   }
 
   try {
