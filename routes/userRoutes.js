@@ -9,9 +9,10 @@ const { authenticateToken, isAdmin } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
-// Login
+//login
 router.post("/Login", async (req, res) => {
   const { email, password } = req.body;
+
   try {
     const connection = await pool.getConnection();
     const user = await connection.query(
@@ -21,17 +22,21 @@ router.post("/Login", async (req, res) => {
     connection.release();
 
     if (user.length === 0) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json({
+        success: false,
+        message: "No account linked to this email",
+        code: 2,
+      });
     }
 
     const userData = user[0];
     const isMatch = await bcrypt.compare(password, userData.password);
     if (!isMatch) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect password",
+        code: 3,
+      });
     }
 
     const token = jwt.sign(
@@ -55,19 +60,11 @@ router.post("/Login", async (req, res) => {
     });
   } catch (err) {
     console.error("Error during login:", err);
-    res.status(500).json({ success: false, message: "Failed to login" });
-  }
-});
-
-// Get User ID from Token
-router.get("/GetUserIdFromToken", authenticateToken, (req, res) => {
-  try {
-    const { userId } = req.user;
-    res.json({ success: true, userId });
-  } catch (err) {
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to retrieve user ID" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to login",
+      code: 1, // optional: internal server error
+    });
   }
 });
 
