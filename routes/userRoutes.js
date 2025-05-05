@@ -9,6 +9,18 @@ const { authenticateToken, isAdmin } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
+// Get User ID from Token
+router.get("/GetUserIdFromToken", authenticateToken, (req, res) => {
+  try {
+    const { userId } = req.user;
+    res.json({ success: true, userId });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to retrieve user ID" });
+  }
+});
+
 //login
 router.post("/Login", async (req, res) => {
   const { email, password } = req.body;
@@ -69,46 +81,88 @@ router.post("/Login", async (req, res) => {
 });
 
 // Create New User
-// Create New User
 router.post("/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
 
-  const errors = [];
-
-  // Validation rules
-  const englishRegex = /^[A-Za-z]+$/;
-  const usernameRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/;
-  const passwordRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/;
-
-  if (!name || !englishRegex.test(name)) errors.push(1);
-  if (!surname || !englishRegex.test(surname)) errors.push(2);
-  if (!username || !usernameRegex.test(username)) errors.push(3);
-  if (!password) {
-    errors.push(5); // invalid chars by default if missing
-  } else {
-    if (!passwordRegex.test(password)) errors.push(5);
-    if (password.length < 5 || password.length > 20) errors.push(6);
-  }
-
-  if (errors.length > 0) {
+  // Basic validation
+  if (!name || !surname || !username || !email || !password || !role) {
     return res.status(400).json({
       success: false,
-      errorCodes: errors,
+      errorCode: 0,
+      message: "Missing required fields",
+    });
+  }
+
+  // Name validation (English only)
+  if (!/^[A-Za-z\s]+$/.test(name)) {
+    return res.status(400).json({
+      success: false,
+      errorCode: 1,
+      message: "English only.",
+    });
+  }
+
+  // Surname validation (English only)
+  if (!/^[A-Za-z\s]+$/.test(surname)) {
+    return res.status(400).json({
+      success: false,
+      errorCode: 2,
+      message: "English only.",
+    });
+  }
+
+  // Username validation (English letters, numbers, and symbols only)
+  if (!/^[A-Za-z0-9_.-]+$/.test(username)) {
+    return res.status(400).json({
+      success: false,
+      errorCode: 3,
+      message: "English, numbers, symbols only.",
+    });
+  }
+
+  // Password validation (English, numbers, symbols, length 5–20)
+  if (!/^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/.test(password)) {
+    return res.status(400).json({
+      success: false,
+      errorCode: 5,
+      message: "Only English letters, numbers and symbols allowed.",
+    });
+  }
+
+  if (password.length < 5 || password.length > 20) {
+    return res.status(400).json({
+      success: false,
+      errorCode: 6,
+      message: "Password must be 5–20 characters long.",
     });
   }
 
   const connection = await pool.getConnection();
   try {
-    // Check if email already exists
-    const [existing] = await connection.query(
+    // Check for duplicate email
+    const existingEmail = await connection.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
     );
-    if (existing) {
+    if (existingEmail.length > 0) {
       return res.status(409).json({
         success: false,
-        errorCodes: [4], // Email already exists
+        errorCode: 4,
+        message: "Another account uses this email.",
+      });
+    }
+
+    // Check for duplicate username
+    const existingUsername = await connection.query(
+      "SELECT id FROM users WHERE username = ?",
+      [username]
+    );
+    if (existingUsername.length > 0) {
+      return res.status(409).json({
+        success: false,
+        errorCode: 7,
+        message: "Username already taken.",
       });
     }
 
@@ -132,20 +186,19 @@ router.post("/CreateNewUser", async (req, res) => {
 
     const newUserId = result.insertId;
 
-    // If guide, populate guide_availability
     if (role.toLowerCase() === "guide") {
       const values = [];
       let date = moment("2025-01-01");
-
       while (date.isSameOrBefore("2025-12-31")) {
         values.push([newUserId, date.format("YYYY-MM-DD"), "unavailable"]);
         date.add(1, "day");
       }
-
       const placeholders = values.map(() => "(?, ?, ?)").join(", ");
       const flatValues = values.flat();
-      const sql = `INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ${placeholders}`;
-      await connection.query(sql, flatValues);
+      await connection.query(
+        `INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ${placeholders}`,
+        flatValues
+      );
     }
 
     res.status(201).json({
@@ -154,10 +207,10 @@ router.post("/CreateNewUser", async (req, res) => {
       userId: newUserId,
     });
   } catch (err) {
+    console.error("Error creating user:", err);
     res.status(500).json({
       success: false,
       message: "Failed to create user",
-      error: err.message,
     });
   } finally {
     connection.release();
