@@ -72,37 +72,29 @@ router.post("/Login", async (req, res) => {
 router.post("/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
-
   const errorCodes = [];
 
-  if (!name || !surname || !username || !email || !password || !role) {
-    return res.status(400).json({
-      success: false,
-      errorCodes: [0], // 0 = missing required fields
-    });
-  }
+  const nameRegex = /^[A-Za-z]+$/;
+  const surnameRegex = /^[A-Za-z]+$/;
+  const usernameRegex = /^[A-Za-z0-9._-]+$/;
+  const passwordRegex = /^[\x20-\x7E]{1,20}$/; // ASCII characters, max 20
 
-  const englishOnlyRegex = /^[A-Za-z\s]+$/;
-  const usernameRegex = /^[A-Za-z0-9_.-]+$/;
-
-  if (!englishOnlyRegex.test(name)) errorCodes.push(1);
-  if (!englishOnlyRegex.test(surname)) errorCodes.push(2);
-  if (!usernameRegex.test(username)) errorCodes.push(3);
+  if (!nameRegex.test(name)) errorCodes.push(1); // Name must be English only
+  if (!surnameRegex.test(surname)) errorCodes.push(2); // Surname must be English only
+  if (!usernameRegex.test(username)) errorCodes.push(3); // Username: English, numbers, symbols
+  if (!passwordRegex.test(password)) errorCodes.push(5); // Password rule
 
   const connection = await pool.getConnection();
   try {
-    const emailExists = await connection.query(
+    const existingEmail = await connection.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
     );
-    if (emailExists.length > 0) errorCodes.push(4);
+    if (existingEmail.length > 0) errorCodes.push(4); // Email already in use
 
     if (errorCodes.length > 0) {
       connection.release();
-      return res.status(400).json({
-        success: false,
-        errorCodes: errorCodes,
-      });
+      return res.status(400).json({ success: false, errorCodes });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -128,17 +120,16 @@ router.post("/CreateNewUser", async (req, res) => {
     if (role.toLowerCase() === "guide") {
       const values = [];
       let date = moment("2025-01-01");
-
       while (date.isSameOrBefore("2025-12-31")) {
         values.push([newUserId, date.format("YYYY-MM-DD"), "unavailable"]);
         date.add(1, "day");
       }
-
       const placeholders = values.map(() => "(?, ?, ?)").join(", ");
       const flatValues = values.flat();
-
-      const sql = `INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ${placeholders}`;
-      await connection.query(sql, flatValues);
+      await connection.query(
+        `INSERT IGNORE INTO guide_availability (guide_id, date, status) VALUES ${placeholders}`,
+        flatValues
+      );
     }
 
     res.status(201).json({
@@ -150,6 +141,7 @@ router.post("/CreateNewUser", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to create user",
+      error: err.message,
     });
   } finally {
     connection.release();
@@ -328,27 +320,42 @@ router.post("/ForgotPassword", async (req, res) => {
 // Reset Password
 router.post("/ResetPassword", async (req, res) => {
   const { token, newPassword } = req.body;
+
+  // Password validation: English letters, numbers, symbols, max 20 characters
+  const passwordRegex = /^[\x20-\x7E]{1,20}$/;
+  const errorCodes = [];
+
   if (!token || !newPassword) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Token and new password are required" });
+    return res.status(400).json({
+      success: false,
+      message: "Token and new password are required",
+    });
   }
+
+  if (!passwordRegex.test(newPassword)) {
+    errorCodes.push(5); // Invalid password
+    return res.status(400).json({ success: false, errorCodes });
+  }
+
   try {
     const connection = await pool.getConnection();
     const result = await connection.query(
       "SELECT user_id, created_at FROM password_resets WHERE token = ?",
       [token]
     );
+
     if (!result || result.length === 0) {
       connection.release();
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired token" });
     }
+
     const { user_id, created_at } = result[0];
     const now = new Date();
     const created = new Date(created_at);
     const diff = now - created;
+
     if (diff > 3600000) {
       await connection.query("DELETE FROM password_resets WHERE token = ?", [
         token,
@@ -369,9 +376,10 @@ router.post("/ResetPassword", async (req, res) => {
     ]);
     connection.release();
 
-    res
-      .status(200)
-      .json({ success: true, message: "Password has been reset successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Password has been reset successfully",
+    });
   } catch (err) {
     console.error("ResetPassword error:", err);
     res.status(500).json({ success: false, message: "Server error" });
