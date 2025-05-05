@@ -72,14 +72,39 @@ router.post("/Login", async (req, res) => {
 router.post("/CreateNewUser", async (req, res) => {
   const { name, surname, username, email, password, role, region, country } =
     req.body;
+
+  const errorCodes = [];
+
   if (!name || !surname || !username || !email || !password || !role) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing required fields" });
+    return res.status(400).json({
+      success: false,
+      errorCodes: [0], // 0 = missing required fields
+    });
   }
+
+  const englishOnlyRegex = /^[A-Za-z\s]+$/;
+  const usernameRegex = /^[A-Za-z0-9_.-]+$/;
+
+  if (!englishOnlyRegex.test(name)) errorCodes.push(1);
+  if (!englishOnlyRegex.test(surname)) errorCodes.push(2);
+  if (!usernameRegex.test(username)) errorCodes.push(3);
 
   const connection = await pool.getConnection();
   try {
+    const emailExists = await connection.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+    if (emailExists.length > 0) errorCodes.push(4);
+
+    if (errorCodes.length > 0) {
+      connection.release();
+      return res.status(400).json({
+        success: false,
+        errorCodes: errorCodes,
+      });
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -122,20 +147,15 @@ router.post("/CreateNewUser", async (req, res) => {
       userId: newUserId,
     });
   } catch (err) {
-    if (err.code === "ER_DUP_ENTRY") {
-      return res
-        .status(409)
-        .json({ success: false, message: "Email already exists" });
-    }
     res.status(500).json({
       success: false,
       message: "Failed to create user",
-      error: err.message,
     });
   } finally {
     connection.release();
   }
 });
+
 // Get User By User ID
 router.get("/GetUserByUserId/:id", async (req, res) => {
   const userId = req.params.id;
