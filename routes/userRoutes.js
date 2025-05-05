@@ -387,31 +387,32 @@ router.post("/ForgotPassword", async (req, res) => {
 });
 
 // Reset Password
-// Reset Password
 router.post("/ResetPassword", async (req, res) => {
   const { token, newPassword } = req.body;
 
-  const passwordRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/;
-  const errors = [];
-
-  if (!newPassword) {
-    errors.push(5); // invalid chars by default if missing
-  } else {
-    if (!passwordRegex.test(newPassword)) errors.push(5);
-    if (newPassword.length < 5 || newPassword.length > 20) errors.push(6);
-  }
-
-  if (errors.length > 0) {
+  if (!token || !newPassword) {
     return res.status(400).json({
       success: false,
-      errorCodes: errors,
+      errorCode: 7,
+      message: "Token and new password are required",
     });
   }
 
-  if (!token) {
+  const pattern = /^[A-Za-z0-9!@#$%^&*()_+=\-{}[\]:;"'<>,.?/\\|`~]+$/;
+
+  if (!pattern.test(newPassword)) {
     return res.status(400).json({
       success: false,
-      message: "Token and new password are required",
+      errorCode: 5,
+      message: "English, numbers, symbols only.",
+    });
+  }
+
+  if (newPassword.length < 5 || newPassword.length > 20) {
+    return res.status(400).json({
+      success: false,
+      errorCode: 6,
+      message: "Password must be 5-20 characters.",
     });
   }
 
@@ -424,9 +425,11 @@ router.post("/ResetPassword", async (req, res) => {
 
     if (!result || result.length === 0) {
       connection.release();
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid or expired token" });
+      return res.status(400).json({
+        success: false,
+        errorCode: 8,
+        message: "Invalid or expired token",
+      });
     }
 
     const { user_id, created_at } = result[0];
@@ -439,9 +442,11 @@ router.post("/ResetPassword", async (req, res) => {
         token,
       ]);
       connection.release();
-      return res
-        .status(400)
-        .json({ success: false, message: "Token has expired" });
+      return res.status(400).json({
+        success: false,
+        errorCode: 9,
+        message: "Token has expired",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -452,6 +457,7 @@ router.post("/ResetPassword", async (req, res) => {
     await connection.query("DELETE FROM password_resets WHERE token = ?", [
       token,
     ]);
+
     connection.release();
 
     res.status(200).json({
@@ -460,7 +466,11 @@ router.post("/ResetPassword", async (req, res) => {
     });
   } catch (err) {
     console.error("ResetPassword error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({
+      success: false,
+      errorCode: 10,
+      message: "Server error",
+    });
   }
 });
 
