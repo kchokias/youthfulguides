@@ -26,7 +26,7 @@ router.get("/TravelerProfile/:id", async (req, res) => {
         p.photo_data AS profile_picture
       FROM users u
       LEFT JOIN profile_photos p ON u.id = p.user_id
-      WHERE u.id = ? AND u.role = 'traveler'
+      WHERE u.id = ? AND u.role = 'visitor'
     `;
 
     const travelerResult = await connection.query(travelerQuery, [travelerId]);
