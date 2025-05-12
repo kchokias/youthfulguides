@@ -246,7 +246,8 @@ router.get("/GetUserByUserId/:id", async (req, res) => {
 // Update User
 router.put("/UpdateUser/:id", async (req, res) => {
   const userId = req.params.id;
-  const { name, surname, password, region, country } = req.body;
+  const { name, surname, password, region, country, description } = req.body;
+
   try {
     const connection = await pool.getConnection();
 
@@ -254,6 +255,7 @@ router.put("/UpdateUser/:id", async (req, res) => {
       "SELECT id FROM users WHERE id = ?",
       [userId]
     );
+
     if (userExists.length === 0) {
       connection.release();
       return res
