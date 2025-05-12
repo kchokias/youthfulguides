@@ -224,7 +224,7 @@ router.get("/GetUserByUserId/:id", async (req, res) => {
   try {
     const connection = await pool.getConnection();
     const user = await connection.query(
-      `SELECT id, name, surname, username, email, role, region, country, created_at 
+      `SELECT id, name, surname, username, email, role, region, country, description, created_at 
        FROM users WHERE id = ?`,
       [userId]
     );
@@ -279,6 +279,10 @@ router.put("/UpdateUser/:id", async (req, res) => {
     if (country) {
       updateFields.push("country = ?");
       values.push(country);
+    }
+    if (description) {
+      updateFields.push("description = ?");
+      values.push(description);
     }
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
