@@ -541,4 +541,20 @@ router.get("/GetProfilePhoto/:userId", async (req, res) => {
   }
 });
 
+// Get Role from Token
+router.get("/GetUserRoleFromToken", authenticateToken, (req, res) => {
+  try {
+    const { role } = req.user;
+    res.status(200).json({
+      success: true,
+      role,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve role",
+    });
+  }
+});
+
 module.exports = router;
