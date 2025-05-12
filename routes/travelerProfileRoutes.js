@@ -16,7 +16,7 @@ router.get("/TravelerProfile/:id", async (req, res) => {
 
     const travelerQuery = `
       SELECT 
-        u.id,
+        u.id AS traveler_id,
         u.username,
         u.name,
         u.surname,
