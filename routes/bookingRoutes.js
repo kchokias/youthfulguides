@@ -66,7 +66,8 @@ router.post("/Request", async (req, res) => {
 
       if (hasPending) {
         return res.status(409).json({
-          message: "Another request is already pending for this date",
+          message:
+            "Another request is already pending for this date,please try again later",
         });
       }
     }
