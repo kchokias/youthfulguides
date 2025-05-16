@@ -40,17 +40,35 @@ router.post("/Request", async (req, res) => {
         .json({ message: "Guide is not available on this date" });
     }
 
-    const bookingConflict = await connection.query(
-      `SELECT * FROM bookings 
-       WHERE guide_id = ? AND booked_date = ? AND status != 'cancelled'`,
-      [guide_id, parsedDate]
-    );
+    const conflictQuery = `
+      SELECT status FROM bookings 
+      WHERE guide_id = ? AND booked_date = ? AND status IN ('pending', 'confirmed')
+    `;
 
-    if (Array.isArray(bookingConflict) && bookingConflict.length > 0) {
+    const bookingConflicts = await connection.query(conflictQuery, [
+      guide_id,
+      parsedDate,
+    ]);
+
+    if (Array.isArray(bookingConflicts) && bookingConflicts.length > 0) {
       connection.release();
-      return res
-        .status(409)
-        .json({ message: "Guide is already booked on this date" });
+
+      const hasConfirmed = bookingConflicts.some(
+        (b) => b.status === "confirmed"
+      );
+      const hasPending = bookingConflicts.some((b) => b.status === "pending");
+
+      if (hasConfirmed) {
+        return res.status(409).json({
+          message: "Guide is already booked on this date",
+        });
+      }
+
+      if (hasPending) {
+        return res.status(409).json({
+          message: "Another request is already pending for this date",
+        });
+      }
     }
 
     const insertQuery = `
