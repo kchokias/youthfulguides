@@ -39,7 +39,7 @@ router.get("/GuideProfile/:id", async (req, res) => {
     );
 
     const mediaResult = await connection.query(
-      "SELECT id, media_data, created_at FROM media WHERE guide_id = ?",
+      "SELECT id, media_data, created_at FROM media WHERE guide_id = ? ORDER BY created_at DESC LIMIT 7",
       [guideId]
     );
 
