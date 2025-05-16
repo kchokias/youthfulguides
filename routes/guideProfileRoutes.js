@@ -26,7 +26,7 @@ router.get("/GuideProfile/:id", async (req, res) => {
         p.photo_data AS profile_picture,
         IFNULL(AVG(b.rate), -1) AS average_rating
       FROM users u
-      JOIN profile_photos p ON u.id = p.user_id
+      LEFT JOIN profile_photos p ON u.id = p.user_id
       LEFT JOIN bookings b ON u.id = b.guide_id
       WHERE u.id = ? AND u.role = 'guide'
       GROUP BY u.id
