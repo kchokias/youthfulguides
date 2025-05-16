@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
 
     let baseFilter = `
       FROM users u
-      JOIN profile_photos p ON u.id = p.user_id
+      LEFT JOIN profile_photos p ON u.id = p.user_id
       LEFT JOIN bookings b ON u.id = b.guide_id
       WHERE u.role = 'guide'
         AND u.id IN (
