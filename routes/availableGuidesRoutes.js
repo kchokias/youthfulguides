@@ -73,19 +73,19 @@ router.get("/", async (req, res) => {
     const total = countResult[0]?.total || 0;
 
     const guideIds = guides.map((g) => g.guide_id);
-    let bookingCounts = {};
+    let reviewCounts = {};
 
     if (guideIds.length > 0) {
       const placeholders = guideIds.map(() => "?").join(",");
       const rows = await connection.query(
-        `SELECT guide_id, COUNT(*) AS total_bookings
+        `SELECT guide_id, COUNT(rate) AS total_reviews
          FROM bookings
-         WHERE guide_id IN (${placeholders})
+         WHERE guide_id IN (${placeholders}) AND rate IS NOT NULL
          GROUP BY guide_id`,
         guideIds
       );
-      bookingCounts = Object.fromEntries(
-        rows.map((r) => [r.guide_id, r.total_bookings])
+      reviewCounts = Object.fromEntries(
+        rows.map((r) => [r.guide_id, r.total_reviews])
       );
     }
 
@@ -93,7 +93,7 @@ router.get("/", async (req, res) => {
 
     const guidesWithCounts = guides.map((g) => ({
       ...g,
-      total_bookings: bookingCounts[g.guide_id] || 0,
+      total_reviews: reviewCounts[g.guide_id] || 0,
     }));
 
     res.json({
