@@ -2,13 +2,11 @@ const cron = require("node-cron");
 const moment = require("moment");
 const { pool } = require("./config/db");
 
-// Run every day at 01:00 AM server time
-cron.schedule("0 1 * * *", async () => {
+async function runDailyScheduler() {
   const today = moment().format("YYYY-MM-DD");
   const connection = await pool.getConnection();
 
   try {
-    // ✅ Step 1: Mark confirmed bookings in the past as completed
     const bookingUpdate = await connection.query(
       `UPDATE bookings 
        SET status = 'completed' 
@@ -16,7 +14,6 @@ cron.schedule("0 1 * * *", async () => {
       [today]
     );
 
-    // ✅ Step 2: Mark past available guide dates as unavailable
     const availabilityUpdate = await connection.query(
       `UPDATE guide_availability 
        SET status = 'unavailable' 
@@ -24,14 +21,20 @@ cron.schedule("0 1 * * *", async () => {
       [today]
     );
 
-    console.log(`[Scheduler] Status update ran for ${today}`);
+    console.log(`[Scheduler] Ran for ${today}`);
     console.log(`[Scheduler] Bookings updated: ${bookingUpdate.affectedRows}`);
     console.log(
       `[Scheduler] Availability updated: ${availabilityUpdate.affectedRows}`
     );
   } catch (err) {
-    console.error("[Scheduler] Error during scheduled task:", err.message);
+    console.error("[Scheduler] Error:", err.message);
   } finally {
     connection.release();
   }
-});
+}
+
+// This schedules it daily at 01:00 (still useful)
+cron.schedule("0 1 * * *", runDailyScheduler);
+
+// Export the function for manual run
+module.exports = runDailyScheduler;
