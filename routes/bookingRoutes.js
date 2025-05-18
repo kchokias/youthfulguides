@@ -94,6 +94,7 @@ router.post("/Request", async (req, res) => {
 });
 
 // Accept a Booking
+// Accept a Booking
 router.post("/Accept", async (req, res) => {
   const { booking_id } = req.body;
 
@@ -104,6 +105,7 @@ router.post("/Accept", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
+    // Get guide_id and booked_date
     const [booking] = await connection.query(
       "SELECT guide_id, booked_date FROM bookings WHERE id = ?",
       [booking_id]
@@ -116,11 +118,13 @@ router.post("/Accept", async (req, res) => {
 
     const { guide_id, booked_date } = booking;
 
+    // Update booking status to confirmed
     await connection.query(
       "UPDATE bookings SET status = 'confirmed' WHERE id = ?",
       [booking_id]
     );
 
+    // Update guide availability to booked
     await connection.query(
       `UPDATE guide_availability 
        SET status = 'booked' 
@@ -128,11 +132,46 @@ router.post("/Accept", async (req, res) => {
       [guide_id, booked_date]
     );
 
+    // Fetch traveler info to notify
+    const [traveler] = await connection.query(
+      `SELECT u.email, u.name, g.username AS guide_username
+       FROM bookings b
+       JOIN users u ON b.traveler_id = u.id
+       JOIN users g ON b.guide_id = g.id
+       WHERE b.id = ?`,
+      [booking_id]
+    );
+
     connection.release();
 
-    res
-      .status(200)
-      .json({ message: "Booking confirmed and availability updated" });
+    // Send email if traveler found
+    if (traveler) {
+      const formattedDate = moment(booked_date).format("DD.MM.YYYY");
+
+      const mailOptions = {
+        from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+        to: traveler.email,
+        subject: "Your Booking is Confirmed",
+        html: `
+          <p>Hello ${traveler.name},</p>
+          <p>Your booking for <strong>${formattedDate}</strong> with guide <strong>${traveler.guide_username}</strong> has been confirmed.</p>
+          <p>Log in to your account to see the details.</p>
+          <br/>
+          <p>— Youthful Guides Team</p>
+        `,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log("✅ Confirmation email sent to traveler:", traveler.email);
+      } catch (err) {
+        console.error("❌ Failed to send confirmation email:", err.message);
+      }
+    }
+
+    res.status(200).json({
+      message: "Booking confirmed and availability updated",
+    });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
@@ -150,7 +189,13 @@ router.post("/Decline", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [booking] = await connection.query(
-      "SELECT status FROM bookings WHERE id = ?",
+      `SELECT b.status, b.booked_date,
+              t.email AS traveler_email, t.name AS traveler_name,
+              g.username AS guide_username
+       FROM bookings b
+       JOIN users t ON b.traveler_id = t.id
+       JOIN users g ON b.guide_id = g.id
+       WHERE b.id = ?`,
       [booking_id]
     );
 
@@ -166,10 +211,37 @@ router.post("/Decline", async (req, res) => {
         .json({ message: "Only pending bookings can be declined" });
     }
 
+    // Update status to cancelled
     await connection.query(
       "UPDATE bookings SET status = 'cancelled' WHERE id = ?",
       [booking_id]
     );
+
+    // Email the traveler
+    const formattedDate = moment(booking.booked_date).format("DD.MM.YYYY");
+
+    const mailOptions = {
+      from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+      to: booking.traveler_email,
+      subject: "Booking Request Declined",
+      html: `
+        <p>Hello ${booking.traveler_name},</p>
+        <p>Unfortunately, your booking request for <strong>${formattedDate}</strong> was declined by guide <strong>${booking.guide_username}</strong>.</p>
+        <p>You can search again to find another available guide for that date.</p>
+        <br/>
+        <p>— Youthful Guides Team</p>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(
+        "📧 Decline notification sent to traveler:",
+        booking.traveler_email
+      );
+    } catch (mailErr) {
+      console.error("❌ Failed to send decline email:", mailErr.message);
+    }
 
     connection.release();
 
@@ -193,7 +265,13 @@ router.post("/Cancel", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [booking] = await connection.query(
-      "SELECT status, guide_id, booked_date FROM bookings WHERE id = ?",
+      `SELECT b.status, b.guide_id, b.booked_date,
+              t.email AS traveler_email, t.name AS traveler_name,
+              g.username AS guide_username
+       FROM bookings b
+       JOIN users t ON b.traveler_id = t.id
+       JOIN users g ON b.guide_id = g.id
+       WHERE b.id = ?`,
       [booking_id]
     );
 
@@ -211,23 +289,51 @@ router.post("/Cancel", async (req, res) => {
 
     const { guide_id, booked_date } = booking;
 
+    // Cancel the booking
     await connection.query(
       "UPDATE bookings SET status = 'cancelled' WHERE id = ?",
       [booking_id]
     );
 
+    // Free the availability slot
     await connection.query(
       `UPDATE guide_availability 
-         SET status = 'available' 
-         WHERE guide_id = ? AND date = ?`,
+       SET status = 'available' 
+       WHERE guide_id = ? AND date = ?`,
       [guide_id, booked_date]
     );
 
+    // Send email to traveler
+    const formattedDate = moment(booked_date).format("DD.MM.YYYY");
+
+    const mailOptions = {
+      from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+      to: booking.traveler_email,
+      subject: "Your Booking Was Cancelled",
+      html: `
+        <p>Hello ${booking.traveler_name},</p>
+        <p>Your confirmed booking on <strong>${formattedDate}</strong> with guide <strong>${booking.guide_username}</strong> was cancelled.</p>
+        <p>You can now search again and request another guide for that day.</p>
+        <br/>
+        <p>— Youthful Guides Team</p>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(
+        "📧 Cancellation email sent to traveler:",
+        booking.traveler_email
+      );
+    } catch (mailErr) {
+      console.error("❌ Failed to send cancellation email:", mailErr.message);
+    }
+
     connection.release();
 
-    res
-      .status(200)
-      .json({ message: "Booking cancelled and availability restored" });
+    res.status(200).json({
+      message: "Booking cancelled and availability restored",
+    });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
@@ -247,9 +353,13 @@ router.post("/Traveler/CancelBooking", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [booking] = await connection.query(
-      `SELECT status, guide_id, booked_date 
-         FROM bookings 
-         WHERE id = ? AND traveler_id = ?`,
+      `SELECT b.status, b.guide_id, b.booked_date,
+              t.username AS traveler_username,
+              g.name AS guide_name, g.email AS guide_email
+       FROM bookings b
+       JOIN users t ON b.traveler_id = t.id
+       JOIN users g ON b.guide_id = g.id
+       WHERE b.id = ? AND b.traveler_id = ?`,
       [booking_id, traveler_id]
     );
 
@@ -267,25 +377,56 @@ router.post("/Traveler/CancelBooking", async (req, res) => {
       });
     }
 
-    const { guide_id, booked_date } = booking;
+    const {
+      guide_id,
+      booked_date,
+      traveler_username,
+      guide_name,
+      guide_email,
+    } = booking;
 
+    // Cancel the booking
     await connection.query(
       "UPDATE bookings SET status = 'cancelled' WHERE id = ?",
       [booking_id]
     );
 
+    // Update availability if previously confirmed
     if (booking.status === "confirmed") {
       await connection.query(
         `UPDATE guide_availability
-           SET status = 'available'
-           WHERE guide_id = ? AND date = ?`,
+         SET status = 'available'
+         WHERE guide_id = ? AND date = ?`,
         [guide_id, booked_date]
       );
     }
 
+    // Email the guide
+    const formattedDate = moment(booked_date).format("DD.MM.YYYY");
+
+    const mailOptions = {
+      from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+      to: guide_email,
+      subject: "Booking Cancelled by Traveler",
+      html: `
+        <p>Hello ${guide_name},</p>
+        <p>The traveler <strong>${traveler_username}</strong> has cancelled their booking for <strong>${formattedDate}</strong>.</p>
+        <p>You are now available for new bookings on that date (if it was confirmed).</p>
+        <br/>
+        <p>— Youthful Guides Team</p>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log("📧 Cancellation email sent to guide:", guide_email);
+    } catch (mailErr) {
+      console.error("❌ Failed to send cancellation email:", mailErr.message);
+    }
+
     connection.release();
 
-    res.status(200).json({ message: "Booking cancelled successfully" });
+    res.status(200).json({ message: "Booking cancelled and guide notified" });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
@@ -306,9 +447,14 @@ router.post("/Traveler/LeaveReview", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
+    // Check if booking exists and is completed
     const [booking] = await connection.query(
-      `SELECT status FROM bookings 
-         WHERE id = ? AND traveler_id = ?`,
+      `SELECT b.status, b.booked_date, g.email AS guide_email, g.name AS guide_name,
+              t.username AS traveler_username
+       FROM bookings b
+       JOIN users g ON b.guide_id = g.id
+       JOIN users t ON b.traveler_id = t.id
+       WHERE b.id = ? AND b.traveler_id = ?`,
       [booking_id, traveler_id]
     );
 
@@ -326,12 +472,40 @@ router.post("/Traveler/LeaveReview", async (req, res) => {
         .json({ message: "Only completed bookings can be reviewed" });
     }
 
+    // Update booking with review and status
     await connection.query(
       `UPDATE bookings 
-         SET rate = ?, review = ?, date_reviewed = NOW(), status = 'reviewed'
-         WHERE id = ?`,
+       SET rate = ?, review = ?, date_reviewed = NOW(), status = 'reviewed'
+       WHERE id = ?`,
       [rate, review || null, booking_id]
     );
+
+    // Email the guide
+    const formattedDate = moment(booking.booked_date).format("DD.MM.YYYY");
+
+    const mailOptions = {
+      from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+      to: booking.guide_email,
+      subject: "You Received a New Review",
+      html: `
+        <p>Hello ${booking.guide_name},</p>
+        <p>You just received a new review from traveler <strong>${
+          booking.traveler_username
+        }</strong> for your tour on <strong>${formattedDate}</strong>.</p>
+        <p><strong>Rating:</strong> ${rate} ⭐</p>
+        <p><strong>Comment:</strong> ${review || "(No comment provided)"}</p>
+        <p>Log in to your account to view all your reviews.</p>
+        <br/>
+        <p>— Youthful Guides Team</p>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log("📧 Review notification sent to guide:", booking.guide_email);
+    } catch (mailErr) {
+      console.error("❌ Failed to send review email:", mailErr.message);
+    }
 
     connection.release();
 
