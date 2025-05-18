@@ -1,6 +1,7 @@
 const express = require("express");
 const moment = require("moment");
 const { pool } = require("../config/db");
+const { transporter } = require("../config/mailer");
 
 const router = express.Router();
 
