@@ -19,7 +19,11 @@ const travelerProfileRoutes = require("./routes/travelerProfileRoutes");
 
 const app = express();
 
-const allowedOrigins = ["http://localhost:4200", "https://youthfulguides.app"];
+const allowedOrigins = [
+  "http://localhost:4200",
+  "https://youthfulguides.app",
+  "https://www.youthfulguides.app",
+];
 
 app.use(
   cors({
@@ -39,6 +43,14 @@ app.use(
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
+
+// Log incoming requests
+app.use((req, res, next) => {
+  console.log(`[Incoming] ${req.method} ${req.originalUrl}`);
+  console.log(`Origin: ${req.headers.origin}`);
+  console.log(`IP: ${req.ip}`);
+  next();
+});
 
 app.use("/api/User", userRoutes);
 app.use("/api", bookingRoutes);
@@ -66,3 +78,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on http://youthfulguides.app:${PORT}`);
 });
+
+require("./scheduler");
