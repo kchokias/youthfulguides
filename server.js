@@ -18,6 +18,7 @@ const guideReviewsRoutes = require("./routes/guideReviewsRoutes");
 const travelerProfileRoutes = require("./routes/travelerProfileRoutes");
 
 const app = express();
+app.set("trust proxy", true);
 
 const allowedOrigins = [
   "http://localhost:4200",
