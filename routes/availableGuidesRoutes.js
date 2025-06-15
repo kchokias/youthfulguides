@@ -12,9 +12,9 @@ function convertToSqlDate(input) {
 
 // Find Available Guides
 router.get("/", async (req, res) => {
-  let { start, end, region, skip, take } = req.query;
+  let { start, end, country, skip, take } = req.query;
 
-  if (!start || !end || !region) {
+  if (!start || !end || !country) {
     return res.status(400).json({ message: "Missing parameters" });
   }
 
@@ -39,10 +39,10 @@ router.get("/", async (req, res) => {
         )
     `;
 
-    if (region !== "all") {
-      baseFilter += " AND u.region = ?";
-      mainParams.push(region);
-      countParams.push(region);
+    if (country !== "all") {
+      baseFilter += " AND u.country = ?";
+      mainParams.push(country);
+      countParams.push(country);
     }
 
     const sql = `
