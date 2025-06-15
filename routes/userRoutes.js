@@ -218,13 +218,14 @@ router.post("/CreateNewUser", async (req, res) => {
 });
 
 // Get User By User ID
+// Get User By User ID
 router.get("/GetUserByUserId/:id", async (req, res) => {
   const userId = req.params.id;
 
   try {
     const connection = await pool.getConnection();
     const user = await connection.query(
-      `SELECT id, name, surname, username, email, role, region, country, description, created_at 
+      `SELECT id, name, surname, username, email, role, region, country, description, instagram, created_at 
        FROM users WHERE id = ?`,
       [userId]
     );
@@ -246,7 +247,8 @@ router.get("/GetUserByUserId/:id", async (req, res) => {
 // Update User
 router.put("/UpdateUser/:id", async (req, res) => {
   const userId = req.params.id;
-  const { name, surname, password, region, country, description } = req.body;
+  const { name, surname, password, region, country, description, instagram } =
+    req.body;
 
   try {
     const connection = await pool.getConnection();
@@ -285,6 +287,10 @@ router.put("/UpdateUser/:id", async (req, res) => {
     if (description) {
       updateFields.push("description = ?");
       values.push(description);
+    }
+    if (instagram) {
+      updateFields.push("instagram = ?");
+      values.push(instagram);
     }
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);

@@ -23,6 +23,7 @@ router.get("/GuideProfile/:id", async (req, res) => {
         u.country,
         u.region,
         u.description,
+        u.instagram, 
         p.photo_data AS profile_picture,
         IFNULL(AVG(b.rate), -1) AS average_rating
       FROM users u
