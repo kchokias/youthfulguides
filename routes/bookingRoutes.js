@@ -68,7 +68,7 @@ router.post("/Request", async (req, res) => {
       if (hasPending) {
         return res.status(409).json({
           message:
-            "Another request is already pending for this date,please try again later",
+            "Another request is already pending for this date, please try again later",
         });
       }
     }
@@ -83,80 +83,26 @@ router.post("/Request", async (req, res) => {
       parsedDate,
     ]);
 
-    connection.release();
-
-    res.status(201).json({
-      message: "Booking request created",
-      booking_id: result.insertId,
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Server error", error: err?.message });
-  }
-});
-
-// Accept a Booking
-// Accept a Booking
-router.post("/Accept", async (req, res) => {
-  const { booking_id } = req.body;
-
-  if (!booking_id) {
-    return res.status(400).json({ message: "Missing booking ID" });
-  }
-
-  try {
-    const connection = await pool.getConnection();
-
-    // Get guide_id and booked_date
-    const [booking] = await connection.query(
-      "SELECT guide_id, booked_date FROM bookings WHERE id = ?",
-      [booking_id]
-    );
-
-    if (!booking) {
-      connection.release();
-      return res.status(404).json({ message: "Booking not found" });
-    }
-
-    const { guide_id, booked_date } = booking;
-
-    // Update booking status to confirmed
-    await connection.query(
-      "UPDATE bookings SET status = 'confirmed' WHERE id = ?",
-      [booking_id]
-    );
-
-    // Update guide availability to booked
-    await connection.query(
-      `UPDATE guide_availability 
-       SET status = 'booked' 
-       WHERE guide_id = ? AND date = ?`,
-      [guide_id, booked_date]
-    );
-
-    // Fetch traveler info to notify
-    const [traveler] = await connection.query(
-      `SELECT u.email, u.name, g.username AS guide_username
-       FROM bookings b
-       JOIN users u ON b.traveler_id = u.id
-       JOIN users g ON b.guide_id = g.id
-       WHERE b.id = ?`,
-      [booking_id]
+    // Fetch guide info to send email
+    const [guide] = await connection.query(
+      `SELECT email, name FROM users WHERE id = ?`,
+      [guide_id]
     );
 
     connection.release();
 
-    // Send email if traveler found
-    if (traveler) {
-      const formattedDate = moment(booked_date).format("DD.MM.YYYY");
+    // Send email to guide
+    if (guide) {
+      const formattedDate = moment(parsedDate).format("DD.MM.YYYY");
 
       const mailOptions = {
         from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
-        to: traveler.email,
-        subject: "Your Booking is Confirmed",
+        to: guide.email,
+        subject: "New Booking Request",
         html: `
-          <p>Hello ${traveler.name},</p>
-          <p>Your booking for <strong>${formattedDate}</strong> with guide <strong>${traveler.guide_username}</strong> has been confirmed.</p>
-          <p>Log in to your account to see the details.</p>
+          <p>Hello ${guide.name},</p>
+          <p>You have a new booking request for <strong>${formattedDate}</strong>.</p>
+          <p>Please log in to your account to confirm or decline this request.</p>
           <br/>
           <p>— Youthful Guides Team</p>
         `,
@@ -164,16 +110,21 @@ router.post("/Accept", async (req, res) => {
 
       try {
         await transporter.sendMail(mailOptions);
-        console.log("✅ Confirmation email sent to traveler:", traveler.email);
-      } catch (err) {
-        console.error("❌ Failed to send confirmation email:", err.message);
+        console.log("📧 Booking request email sent to guide:", guide.email);
+      } catch (mailErr) {
+        console.error(
+          "❌ Failed to send booking request email:",
+          mailErr.message
+        );
       }
     }
 
-    res.status(200).json({
-      message: "Booking confirmed and availability updated",
+    res.status(201).json({
+      message: "Booking request created and guide notified",
+      booking_id: result.insertId,
     });
   } catch (err) {
+    console.error("Booking request error:", err);
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
