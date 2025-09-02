@@ -26,6 +26,6 @@ const moment = require("moment");
   } catch (err) {
     console.error("❌ Error running scheduler manually:", err.message);
   } finally {
-    process.exit(); // Cleanly exit after run
+    process.exit(); // Clean exit
   }
 })();

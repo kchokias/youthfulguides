@@ -128,6 +128,88 @@ router.post("/Request", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err?.message });
   }
 });
+// Accept a Booking
+router.post("/Accept", async (req, res) => {
+  const { booking_id } = req.body;
+
+  if (!booking_id) {
+    return res.status(400).json({ message: "Missing booking ID" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // Get guide_id and booked_date
+    const [booking] = await connection.query(
+      "SELECT guide_id, booked_date FROM bookings WHERE id = ?",
+      [booking_id]
+    );
+
+    if (!booking) {
+      connection.release();
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    const { guide_id, booked_date } = booking;
+
+    // Update booking status to confirmed
+    await connection.query(
+      "UPDATE bookings SET status = 'confirmed' WHERE id = ?",
+      [booking_id]
+    );
+
+    // Update guide availability to booked
+    await connection.query(
+      `UPDATE guide_availability 
+       SET status = 'booked' 
+       WHERE guide_id = ? AND date = ?`,
+      [guide_id, booked_date]
+    );
+
+    // Fetch traveler info to notify
+    const [traveler] = await connection.query(
+      `SELECT u.email, u.name, g.username AS guide_username
+       FROM bookings b
+       JOIN users u ON b.traveler_id = u.id
+       JOIN users g ON b.guide_id = g.id
+       WHERE b.id = ?`,
+      [booking_id]
+    );
+
+    connection.release();
+
+    // Send email if traveler found
+    if (traveler) {
+      const formattedDate = moment(booked_date).format("DD.MM.YYYY");
+
+      const mailOptions = {
+        from: `"Youthful Guides" <${process.env.EMAIL_USER}>`,
+        to: traveler.email,
+        subject: "Your Booking is Confirmed",
+        html: `
+          <p>Hello ${traveler.name},</p>
+          <p>Your booking for <strong>${formattedDate}</strong> with guide <strong>${traveler.guide_username}</strong> has been confirmed.</p>
+          <p>Log in to your account to see the details.</p>
+          <br/>
+          <p>— Youthful Guides Team</p>
+        `,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log("✅ Confirmation email sent to traveler:", traveler.email);
+      } catch (err) {
+        console.error("❌ Failed to send confirmation email:", err.message);
+      }
+    }
+
+    res.status(200).json({
+      message: "Booking confirmed and availability updated",
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err?.message });
+  }
+});
 
 // Decline a Booking
 router.post("/Decline", async (req, res) => {
